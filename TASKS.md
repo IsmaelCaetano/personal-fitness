@@ -5,6 +5,7 @@ Cada tarefa deve caber em um commit revisável e reversível.
 ## Agora
 
 - [ ] **T6** — Configurar `GEMINI_API_KEY` na Vercel e validar geração real · atende `R7`, `R8` · verifica-se: OCR e plano funcionam em produção.
+- [ ] **T9** — Validar em produção a recuperação de gravações pendentes, conflitos reais e salvamento de plano gerado · atende `R13`, `R14`.
 
 ## Anotado durante a implementação
 

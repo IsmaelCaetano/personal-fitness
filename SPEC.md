@@ -51,8 +51,8 @@ Pessoas que treinam musculação, corrida ou atividades híbridas precisam organ
 | R10 | Usuário deve revisar justificativa, rotinas, exercícios e progressão antes de salvar plano gerado. | Modal apresenta preview e exige clique em “Salvar plano”. |
 | R11 | Treino ativo deve reutilizar a última carga registrada quando disponível. | Teste de domínio cobre `getPreviousExercisePerformance`. |
 | R12 | Volume conta somente séries concluídas e histórico demonstra dados reais. | Testes de domínio e UI de histórico. |
-| R13 | Operações concorrentes devem detectar versão desatualizada. | API retorna 409 quando a versão não corresponde. |
-| R14 | Falha de rede deve preservar alterações locais pendentes e permitir sincronização posterior. | Teste/manual offline mostra estado local e fila pendente. |
+| R13 | Operações concorrentes devem detectar versão desatualizada e oferecer escolha entre as versões. | API retorna 409 quando a versão não corresponde; conflito real permite manter a alteração local ou usar a versão da nuvem para o registro afetado. |
+| R14 | Falha de rede deve preservar alterações locais pendentes e permitir sincronização posterior sem duplicar gravação já confirmada. | Ao entrar, compara a fila com a nuvem e remove a alteração idêntica já salva; mantém as demais e solicita escolha somente se o conteúdo divergir. |
 | R15 | Nenhuma credencial privada pode aparecer no bundle do cliente ou no repositório. | Gate de segredos e revisão de variáveis `NEXT_PUBLIC_*`. |
 | R16 | Importar semana com múltiplas sessões em um dia, atividade cardio junto de força, descanso e cargas progressivas sem perder linhas. | Teste de importação espera duas rotinas na segunda, futebol de 60 min na terça, domingo sem rotina e cargas 100/110/120 kg por série. Prévia permite corrigir o dia. |
 
@@ -76,8 +76,8 @@ Falhas de autenticação ou RLS podem expor dados entre usuários e são crític
 | Resposta de IA inválida | Zod rejeita; usuário pode tentar novamente. |
 | Foto ilegível | Solicitar foto mais nítida; nunca inventar campo ilegível. |
 | Sessão expirada | API retorna 401 e pede novo login. |
-| Registro alterado em outro aparelho | API retorna 409 e oferece resolução de conflito. |
-| Rede interrompida ao salvar | Alteração permanece na fila local até nova tentativa. |
+| Registro alterado em outro aparelho | API retorna 409 e oferece escolha entre alterações locais e versão da nuvem, preservando os demais registros. |
+| Rede interrompida ao salvar | Alteração permanece na fila local; se o servidor já a salvou, a fila é confirmada sem criar conflito falso. |
 | Dados antigos demonstrativos | API remove somente registros explicitamente marcados como demo. |
 
 ## Decisões arquiteturais
