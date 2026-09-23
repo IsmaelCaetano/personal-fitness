@@ -62,6 +62,8 @@ Durante o desenvolvimento, `pnpm check:fast` pula apenas o build final.
 - Nova conta: autenticação → altura/peso/objetivos/frequência → painel vazio.
 - Gerador: preferências + perfil + histórico → API server-side → Zod → revisão → salvar.
 - Foto: imagem em memória → transcrição → texto editável → parser → revisão → importar.
+- Texto: títulos por dia da semana e turno viram rotinas separadas, inclusive duas no mesmo dia. Cardio no fim da sessão vira exercício da rotina; descanso não cria rotina. A prévia permite corrigir os dias.
+- Cargas: sequências como `100 / 110 / 120 kg` são preservadas por série; metas condicionais (`até 110 kg`) ficam como orientação. Cargas indicadas “por lado” aparecem na ficha, sem preencher automaticamente o peso total.
 - Fotos de até 8 MB são reduzidas no navegador para respeitar o limite de requisição da Vercel; o servidor não armazena a foto.
 - Persistência: alteração otimista local → API versionada → Supabase com RLS.
 

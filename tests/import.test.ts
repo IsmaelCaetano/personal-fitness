@@ -70,3 +70,66 @@ Toe Yoga — 2x8`;
  assert.equal(drafts.length,2);
  assert.deepEqual(drafts.map(d=>d.rows.length),[2,2]);
 });
+
+test('importa semana com duas sessões no mesmo dia, futebol, metas de carga e descanso',()=>{
+ const text=`SEMANA PADRÃO
+Dia 1 — Segunda: Push (manhã) + Pull (noite)
+Dia 2 — Terça: Pernas A (quadríceps) + futebol
+Dia 3 — Quarta: Ombros + abdômen
+Dia 4 — Quinta: Pernas B (posterior e glúteos)
+Dia 5 — Sexta: Upper (pontos fracos)
+Dia 6 — Sábado: Posterior e glúteos
+Dia 7 — Domingo: descanso
+
+SEGUNDA — PUSH (MANHÃ)
+Supino reto — 3×6–8 — cargas alvo: 100 / 110 / 120 kg — descanso 180 s
+Supino inclinado na máquina — 3×8–10 — aumentar a carga a cada série — descanso 120 s
+Desenvolvimento de ombros na máquina — 3×8–10 — cargas alvo: 25 / 30 / 32,5 kg por lado — descanso 120 s
+
+SEGUNDA — PULL (NOITE)
+Puxada alta — 3×8–12 — aumentar a carga a cada série — descanso 120 s
+Remada com apoio — 3×8–10 — progredir até 110 kg se a execução estiver firme — descanso 120 s
+
+TERÇA — PERNAS A (ÊNFASE EM QUADRÍCEPS)
+Agachamento — 3×6–10 — começar com 120 kg e progredir conforme a execução — descanso 180 s
+Leg press — 3×10–12 — começar com 160–200 kg; manter a lombar apoiada — descanso 180 s
+Cardio — futebol, aproximadamente 1 h.
+
+QUARTA — OMBROS + ABDÔMEN
+ISO-Lateral Shoulder Press — 3×8–10 — cargas alvo: 25 / 30 / 32,5 kg por lado — descanso 120 s
+Cardio — bike ou remador, 15 min em ritmo moderado.
+
+QUINTA — PERNAS B (ÊNFASE EM POSTERIOR E GLÚTEOS)
+Mesa flexora — 3×8–12 — progredir até 120 kg se a execução estiver controlada — descanso 120 s
+Extensão de quadril no cabo — 3×12–15 por perna — descanso 75 s
+
+SEXTA — UPPER (PONTOS FRACOS)
+Chest press — 3×6–10 — progredir até 140 kg se a execução estiver firme — descanso 120 s
+Cardio — bike ou esteira sem motor, 10–15 min em ritmo moderado.
+
+SÁBADO — POSTERIOR E GLÚTEOS
+Abdutora — 3×12–15 — descanso 75 s
+Cardio — bike leve, 15 min.
+
+DOMINGO — DESCANSO`;
+ const drafts=parseWorkoutText(text,library);
+ assert.equal(drafts.length,7);
+ assert.deepEqual(drafts.map(d=>d.days),[[1],[1],[2],[3],[4],[5],[6]]);
+ assert.deepEqual(drafts.map(d=>d.rows.length),[3,2,3,2,2,2,2]);
+ assert.deepEqual(drafts[0].rows[0].targetWeights,[100,110,120]);
+ assert.equal(drafts[0].rows[0].suggestedWeight,100);
+ assert.equal(drafts[0].rows[0].rest,180);
+ assert.equal(drafts[0].rows[2].suggestedWeight,null);
+ assert.match(drafts[0].rows[2].loadText,/25 \/ 30 \/ 32,5 kg por lado/);
+ assert.equal(drafts[1].rows[1].suggestedWeight,null);
+ assert.equal(drafts[2].rows[1].suggestedWeight,160);
+ assert.equal(drafts[2].rows[2].exerciseId,'base-51');
+ assert.equal(drafts[2].rows[2].targetType,'minutes');
+ assert.equal(drafts[2].rows[2].minReps,60);
+ assert.equal(drafts[3].rows[1].exerciseId,'base-34');
+ assert.equal(drafts[3].rows[1].minReps,15);
+ assert.equal(drafts[5].rows[1].maxReps,15);
+ const compiled=compileImport(drafts,library);
+ assert.deepEqual(compiled.routines[0].exercises[0].targetWeights,[100,110,120]);
+ assert.equal(compiled.routines.filter(r=>r.days.includes(0)).length,0);
+});

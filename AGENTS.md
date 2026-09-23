@@ -36,7 +36,7 @@ Antes de relatar que funciona, rode `pnpm check`. Se não puder, diga exatamente
 - `features/fitness/profile-onboarding.tsx`: cadastro complementar obrigatório.
 - `lib/fitness/model.ts`: contrato Zod persistido.
 - `lib/fitness/domain.ts`: cálculos puros; teste aqui antes de usar na UI.
-- `lib/fitness/import.ts`: parser determinístico de texto/JSON.
+- `lib/fitness/import.ts`: parser determinístico de texto/JSON; identifica dia/turno, atividades na sessão, descanso e cargas por série. Mantenha os `base-*` existentes estáveis ao estender a biblioteca.
 - `lib/fitness/seed.ts`: biblioteca estática e estado vazio de novas contas.
 - `supabase/schema.sql`: tabela e RLS.
 - `tests/`: testes de domínio e importação.

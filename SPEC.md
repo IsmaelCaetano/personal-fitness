@@ -54,6 +54,7 @@ Pessoas que treinam musculação, corrida ou atividades híbridas precisam organ
 | R13 | Operações concorrentes devem detectar versão desatualizada. | API retorna 409 quando a versão não corresponde. |
 | R14 | Falha de rede deve preservar alterações locais pendentes e permitir sincronização posterior. | Teste/manual offline mostra estado local e fila pendente. |
 | R15 | Nenhuma credencial privada pode aparecer no bundle do cliente ou no repositório. | Gate de segredos e revisão de variáveis `NEXT_PUBLIC_*`. |
+| R16 | Importar semana com múltiplas sessões em um dia, atividade cardio junto de força, descanso e cargas progressivas sem perder linhas. | Teste de importação espera duas rotinas na segunda, futebol de 60 min na terça, domingo sem rotina e cargas 100/110/120 kg por série. Prévia permite corrigir o dia. |
 
 ## Ambiente
 

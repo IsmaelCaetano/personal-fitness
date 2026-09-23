@@ -17,6 +17,7 @@ export type ImportRow = {
   targetType: TargetType;
   targetText: string;
   suggestedWeight: number | null;
+  targetWeights?: number[];
   loadText: string;
 };
 export type ImportDraft = {
@@ -32,6 +33,22 @@ export const normalize = (s: string) =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+const weekday = (name: string): number | null => {
+  const match = /^(domingo|segunda|ter[cç]a|quarta|quinta|sexta|s[aá]bado)(?:-feira)?\b/i.exec(name.trim());
+  if (!match) return null;
+  return ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"].indexOf(normalize(match[1]));
+};
+const isRest = (line: string) => /\b(?:descanso|folga|repouso)\b/i.test(normalize(line));
+function cardioRow(line: string) {
+  const detail = line.replace(/^cardio\s*[—–:-]\s*/i, "").trim();
+  const duration = /(\d+(?:[.,]\d+)?)(?:\s*[-–]\s*(\d+(?:[.,]\d+)?))?\s*(h(?:oras?)?|min(?:utos?)?)\b/i.exec(detail);
+  if (!duration) return `${detail || "Cardio"} — conforme descrição`;
+  const factor = duration[3].toLowerCase().startsWith("h") ? 60 : 1;
+  const minutes = Math.round(Number(duration[1].replace(",", ".")) * factor);
+  const maxMinutes = duration[2] ? Math.round(Number(duration[2].replace(",", ".")) * factor) : null;
+  const name = /futebol/i.test(detail) ? "Futebol" : /bike|bicicleta/i.test(detail) ? "Bicicleta ergométrica" : /remador|remo/i.test(detail) ? "Remo ergométrico" : "Cardio";
+  return `${name} — ${minutes}${maxMinutes ? `–${maxMinutes}` : ""} min — ${detail}`;
+}
 const aliases: Record<string, string[]> = {
   "base-0": [
     "supino reto",
@@ -59,7 +76,6 @@ const aliases: Record<string, string[]> = {
   "base-8": [
     "desenvolvimento halteres",
     "desenvolvimento com halteres",
-    "desenvolvimento ombros maquina",
   ],
   "base-9": ["elevacao lateral"],
   "base-10": ["crucifixo inverso", "voador invertido", "face pull"],
@@ -87,6 +103,18 @@ const aliases: Record<string, string[]> = {
   "base-28": ["abdominal solo", "abdominal"],
   "base-29": ["rosca punho", "rosca de punho"],
   "base-30": ["agachamento smith", "agachamento no smith"],
+  "base-42": ["supino inclinado na maquina", "supino inclinado maquina"],
+  "base-43": ["desenvolvimento de ombros na maquina", "desenvolvimento ombros maquina", "iso lateral shoulder press"],
+  "base-44": ["remada com apoio", "remada apoiada"],
+  "base-45": ["extensao de quadril no cabo", "coice no cabo"],
+  "base-46": ["abdomen na maquina", "abdominal na maquina"],
+  "base-47": ["crossover baixo para alto"],
+  "base-48": ["abdutora", "cadeira abdutora"],
+  "base-49": ["chest press", "supino maquina"],
+  "base-50": ["panturrilhas na maquina", "panturrilha na maquina"],
+  "base-51": ["futebol", "jogar futebol"],
+  "base-52": ["bike", "bicicleta", "bike leve"],
+  "base-53": ["remador", "remo"],
 };
 export function matchExercise(name: string, exercises: Exercise[]) {
   const target = normalize(name);
@@ -109,7 +137,7 @@ function parseRow(
       line,
     );
   const duration = !rx
-    ? /(\d{1,3})(?:\s*[-–a]\s*(\d{1,3}))?\s*(min(?:utos?)?|s(?:egundos?)?)\b/i.exec(
+    ? /(\d{1,3})(?:\s*[-–a]\s*(\d{1,3}))?\s*(min(?:utos?)?|s(?:egundos?)?|h(?:oras?)?)\b/i.exec(
         line,
       )
     : null;
@@ -144,16 +172,17 @@ function parseRow(
       tail = `Faixa prevista de ${rx[1]}–${rx[2]} séries. ${tail}`.trim();
   } else if (duration) {
     name = line.slice(0, duration.index).replace(/[\s:;|–—-]+$/, "");
-    minReps = Number(duration[1]);
-    maxReps = Number(duration[2] ?? duration[1]);
+    const hours = duration[3].toLowerCase().startsWith("h");
+    minReps = Number(duration[1]) * (hours ? 60 : 1);
+    maxReps = Number(duration[2] ?? duration[1]) * (hours ? 60 : 1);
     tail = line
       .slice(duration.index + duration[0].length)
       .trim()
       .replace(/^[;|,\s–—-]+/, "");
-    targetType = duration[3].toLowerCase().startsWith("min")
+    targetType = hours || duration[3].toLowerCase().startsWith("min")
       ? "minutes"
       : "seconds";
-    targetText = `${duration[1]}${duration[2] ? `–${duration[2]}` : ""} ${targetType === "minutes" ? "min" : "s"}`;
+    targetText = `${minReps}${duration[2] ? `–${maxReps}` : ""} ${targetType === "minutes" ? "min" : "s"}`;
   } else {
     const pieces = line.split(/\s+[—–]\s+/);
     name = pieces.shift() ?? line;
@@ -168,17 +197,31 @@ function parseRow(
   if (rest)
     restSeconds =
       Number(rest[1]) * (rest[3].toLowerCase().startsWith("min") ? 60 : 1);
-  const load = /(\d+[.,]?\d*)(?:\s*[-–a]\s*(\d+[.,]?\d*))?\s*(kg|lbs?)\b/i.exec(
-    tail,
-  );
+  const targetLoads = /cargas?\s+alvo\s*:\s*((?:\d+[.,]?\d*\s*[/|]\s*)+\d+[.,]?\d*)\s*(kg|lbs?)\b/i.exec(tail);
+  const startLoad = /come[cç]ar\s+com\s+(\d+[.,]?\d*)(?:\s*[-–]\s*(\d+[.,]?\d*))?\s*(kg|lbs?)\b/i.exec(tail);
+  const conditionalLoad = /(?:progredir\s+at[eé]|at[eé])\s+\d+[.,]?\d*\s*(?:kg|lbs?)\b/i.test(tail);
+  const load = /(\d+[.,]?\d*)(?:\s*[-–a]\s*(\d+[.,]?\d*))?\s*(kg|lbs?)\b/i.exec(tail);
   let suggestedWeight: number | null = null,
     loadText = "";
-  if (load) {
-    const n = Number(load[1].replace(",", "."));
-    suggestedWeight = load[3].toLowerCase().startsWith("lb")
-      ? n / 2.2046226218
-      : n;
-    loadText = load[0];
+  let targetWeights: number[] | undefined;
+  if (targetLoads) {
+    loadText = targetLoads[0] + (/\bpor\s+lado\b/i.test(tail) ? " por lado" : "");
+    targetWeights = targetLoads[1].split(/\s*[/|]\s*/).map((value) => {
+      const number = Number(value.replace(",", "."));
+      return targetLoads[2].toLowerCase().startsWith("lb") ? number / 2.2046226218 : number;
+    });
+    if (!/\bpor\s+lado\b/i.test(tail)) suggestedWeight = targetWeights[0];
+    else targetWeights = undefined;
+  } else if (startLoad) {
+    loadText = startLoad[0];
+    const number = Number(startLoad[1].replace(",", "."));
+    suggestedWeight = startLoad[3].toLowerCase().startsWith("lb") ? number / 2.2046226218 : number;
+  } else if (load) {
+    loadText = conditionalLoad ? `até ${load[0]}` : load[0];
+    if (!conditionalLoad && !/\bpor\s+lado\b/i.test(tail)) {
+      const number = Number(load[1].replace(",", "."));
+      suggestedWeight = load[3].toLowerCase().startsWith("lb") ? number / 2.2046226218 : number;
+    }
   } else {
     const descriptive =
       /(\d+\s*barras?|peso corporal|carga (?:leve|moderada|leve a moderada|leve ou moderada))/i.exec(
@@ -197,7 +240,7 @@ function parseRow(
     sets > 12 ||
     minReps < 1 ||
     maxReps < minReps ||
-    maxReps > 100 ||
+    maxReps > (targetType === "reps" ? 100 : 600) ||
     restSeconds > 900
   ) {
     recognized = false;
@@ -220,6 +263,7 @@ function parseRow(
     targetType,
     targetText,
     suggestedWeight,
+    targetWeights,
     loadText,
   };
 }
@@ -326,7 +370,7 @@ export function parseWorkoutText(
   }
   const schedule: { day: number; name: string }[] = [];
   const drafts: ImportDraft[] = [];
-  const lines = text.split(/\r?\n/).map((x) => x.trim());
+  const lines = text.split(/\r?\n/).map((x) => x.replace(/[\u00a0\u202f]/g, " ").trim().replace(/^#{1,4}\s+|^[-*•]\s+/, ""));
   let current: ImportDraft | null = null;
   const hasPrescription = (line: string) =>
     /\d+\s*(?:[-–]\s*\d+\s*)?[x×]\s*\d+|\d+\s*(?:[-–a]\s*\d+\s*)?(?:min(?:utos?)?|segundos?)\b/i.test(
@@ -337,13 +381,27 @@ export function parseWorkoutText(
     if (!line || /^semana\b/i.test(line)) continue;
     const scheduled = /^dia\s+([1-7])\s*[—–:-]\s*(.+)$/i.exec(line);
     if (scheduled) {
+      const explicitDay = weekday(scheduled[2]);
       schedule.push({
-        day: Number(scheduled[1]) % 7,
-        name: scheduled[2].trim(),
+        day: explicitDay ?? Number(scheduled[1]) % 7,
+        name: scheduled[2].replace(/^(?:domingo|segunda|ter[cç]a|quarta|quinta|sexta|s[aá]bado)(?:-feira)?\s*:\s*/i, "").trim(),
       });
       continue;
     }
     if (/^(?:exerc[ií]cio|nome)\s*[;|\t]/i.test(line)) continue;
+    const datedHeader = /^(domingo|segunda|ter[cç]a|quarta|quinta|sexta|s[aá]bado)(?:-feira)?\s*[—–:-]\s*(.+)$/i.exec(line);
+    if (datedHeader && !hasPrescription(line)) {
+      if (isRest(datedHeader[2])) { current = null; continue; }
+      current = { id: newId(), name: `${datedHeader[1]} — ${datedHeader[2]}`.slice(0, 80), days: [weekday(datedHeader[1])!], rows: [] };
+      drafts.push(current);
+      continue;
+    }
+    if (/^cardio\s*[—–:-]/i.test(line)) {
+      if (!current) { current = { id: newId(), name: "Cardio", days: [], rows: [] }; drafts.push(current); }
+      current.rows.push(parseRow(cardioRow(line), exercises, defaultRest));
+      continue;
+    }
+    if (isRest(line) && !hasPrescription(line)) { current = null; continue; }
     const next = lines.slice(i + 1).find(Boolean) ?? "";
     const explicitHeader =
       /^(?:treino|rotina)\b/i.test(line) ||
@@ -374,13 +432,15 @@ export function parseWorkoutText(
   for (let i = drafts.length - 1; i >= 0; i--)
     if (!drafts[i].rows.length) drafts.splice(i, 1);
   for (const item of schedule) {
+    if (isRest(item.name)) continue;
     const wanted = normalize(item.name).replace(/\s+opcional$/, "");
     const found = drafts.find((d) => {
       const key = normalize(d.name);
       return (
         key === wanted ||
         key.startsWith(`${wanted} `) ||
-        wanted.startsWith(`${key} `)
+        wanted.startsWith(`${key} `) ||
+        (d.days.includes(item.day) && (key.includes(wanted) || wanted.includes(key)))
       );
     });
     if (found && !found.days.includes(item.day)) found.days.push(item.day);
@@ -426,6 +486,7 @@ export function compileImport(drafts: ImportDraft[], exercises: Exercise[]) {
         targetType: row.targetType,
         targetText: row.targetText,
         suggestedWeight: row.suggestedWeight,
+        targetWeights: row.targetWeights,
         loadText: row.loadText,
       };
     });

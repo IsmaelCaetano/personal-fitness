@@ -137,7 +137,7 @@ export function FitnessApp({ uid, email }: { uid: string; email: string }) {
             id: newId(),
             weight:
               previous[i]?.weight ??
-              (activity ? 0 : (p.suggestedWeight ?? null)),
+              (activity ? 0 : (p.targetWeights?.[i] ?? p.suggestedWeight ?? null)),
             reps:
               previous[i]?.reps ?? (activity ? Math.max(1, p.minReps) : null),
             rir: null,
