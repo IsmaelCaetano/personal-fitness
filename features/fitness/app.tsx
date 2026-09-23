@@ -2,8 +2,6 @@
 import { useEffect, useState } from "react";
 import {
   Activity,
-  ArrowUpRight,
-  Check,
   ChevronRight,
   CloudCheck,
   Dumbbell,
@@ -11,10 +9,8 @@ import {
   ChartNoAxesCombined,
   History,
   LoaderCircle,
-  Plus,
   UserRound,
   WifiOff,
-  X,
 } from "lucide-react";
 import {
   Sidebar,
@@ -28,7 +24,6 @@ import {
 } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Toaster } from "@/components/ui/sonner";
-import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Confirm } from "./shared";
 import { RoutinePreview } from "./routine-preview";
@@ -37,7 +32,8 @@ import { Routines } from "./routines";
 import { Workout } from "./workout";
 import { History as HistoryPage, SessionDetails } from "./history";
 import { ProgressPage } from "./progress";
-import { ProfilePage, goals } from "./profile";
+import { ProfilePage } from "./profile";
+import { ProfileOnboarding } from "./profile-onboarding";
 import { useFitness } from "./use-fitness";
 import { library } from "@/lib/fitness/seed";
 import { newId, type Routine, type Session } from "@/lib/fitness/model";
@@ -206,6 +202,13 @@ export function FitnessApp({ uid, email }: { uid: string; email: string }) {
           : store.status === "error"
             ? "Erro ao salvar"
             : "Tudo salvo";
+  if (data && !data.profile.onboarded)
+    return (
+      <>
+        <ProfileOnboarding data={data} mutate={mutate} />
+        <Toaster position="top-center" theme={data.profile.theme} richColors />
+      </>
+    );
   return (
     <SidebarProvider>
       <Sidebar collapsible="none" className="fitness-sidebar">
@@ -352,62 +355,6 @@ export function FitnessApp({ uid, email }: { uid: string; email: string }) {
             </div>
           ) : (
             <>
-              {!data.profile.onboarded && view === "today" && (
-                <div className="onboarding">
-                  <div>
-                    <strong>Seu espaço está pronto, Ismael.</strong>
-                    <p>
-                      Confira seus objetivos e comece com as rotinas de exemplo.
-                    </p>
-                    <div className="onboarding-goals">
-                      {goals.map((g) => (
-                        <label key={g}>
-                          <Checkbox
-                            checked={data.profile.goals.includes(g)}
-                            onCheckedChange={(checked) =>
-                              mutate("profile", {
-                                ...data.profile,
-                                goals: checked
-                                  ? [...data.profile.goals, g]
-                                  : data.profile.goals.filter((x) => x !== g),
-                              })
-                            }
-                          />
-                          {g}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="onboarding-actions">
-                    <button
-                      className="primary"
-                      onClick={() =>
-                        mutate("profile", { ...data.profile, onboarded: true })
-                      }
-                    >
-                      Usar rotinas exemplo
-                      <Check size={16} />
-                    </button>
-                    <button
-                      className="text-button"
-                      onClick={() => {
-                        mutate("profile", { ...data.profile, onboarded: true });
-                        data.routines.forEach((r) =>
-                          mutate("routine", r, true),
-                        );
-                        data.sessions
-                          .filter((s) => s.isDemo)
-                          .forEach((s) => mutate("session", s, true));
-                        setNewRoutine(true);
-                        navigate("routines");
-                      }}
-                    >
-                      Criar do zero
-                      <ArrowUpRight size={15} />
-                    </button>
-                  </div>
-                </div>
-              )}
               {view === "today" && (
                 <Dashboard
                   data={data}
