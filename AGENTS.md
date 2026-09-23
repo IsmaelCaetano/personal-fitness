@@ -82,7 +82,7 @@ Antes de relatar que funciona, rode `pnpm check`. Se não puder, diga exatamente
 - **Local cache pode conter schema anterior.** Migrações de modelo precisam tolerar/normalizar snapshots existentes.
 - **Resultado Gemini pode ser JSON válido e semanticamente ruim.** Sempre compilar contra a biblioteca e o `routineSchema`.
 - **HEIC pode chegar com MIME vazio ou variável.** Validar extensão e normalizar antes da API.
-- **A chave Gemini não existe ainda na produção.** UI deve falhar de forma segura até a variável ser configurada.
+- **A chave Gemini foi adicionada à Production na Vercel em 2026-09-23.** O primeiro teste revelou que `gemini-2.5-flash-lite` não está disponível para novas contas; o endpoint foi atualizado para `gemini-3.5-flash-lite` no commit `ba96ed4`. Ainda falta validar geração e OCR autenticados após o deploy.
 
 ## Nunca
 
