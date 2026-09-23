@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
-import { Check, FileText, Plus, Trash2, Upload } from "lucide-react";
+import { Check, FileImage, FileText, LoaderCircle, Trash2, Upload } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Combobox,
@@ -19,7 +19,6 @@ import {
   type ImportRow,
 } from "@/lib/fitness/import";
 import {
-  newId,
   routineSchema,
   type Exercise,
   type Routine,
@@ -70,7 +69,10 @@ export function ImportWorkout({
   const [remove, setRemove] = useState<string[]>([]);
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState("");
+  const [readingImage, setReadingImage] = useState(false);
+  const [imageName, setImageName] = useState("");
   const file = useRef<HTMLInputElement>(null);
+  const imageFile = useRef<HTMLInputElement>(null);
   function patch(did: string, rid: string, values: Partial<ImportRow>) {
     setDrafts((previous) =>
       previous!.map((d) =>
@@ -97,6 +99,29 @@ export function ImportWorkout({
     }
     setText(await file.text());
     setError("");
+  }
+  async function loadImage(selected: File | undefined) {
+    if (!selected) return;
+    if (selected.size > 8_000_000) { setError("Use uma imagem de até 8 MB."); return; }
+    const allowed = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+    if (!allowed.includes(selected.type) && !/\.(jpe?g|png|webp|heic|heif)$/i.test(selected.name)) { setError("Use uma foto JPG, PNG, WEBP ou HEIC."); return; }
+    setReadingImage(true); setError(""); setImageName(selected.name);
+    try {
+      const original = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error("Não foi possível abrir a imagem.")); reader.readAsDataURL(selected); });
+      let image = original;
+      let mimeType = selected.type || (selected.name.toLowerCase().endsWith(".heic") ? "image/heic" : selected.name.toLowerCase().endsWith(".webp") ? "image/webp" : selected.name.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg");
+      image = image.replace(/^data:[^;]+;base64,/, `data:${mimeType};base64,`);
+      if (selected.size > 2_500_000) {
+        image = await new Promise<string>((resolve, reject) => { const picture = new Image(); picture.onload = () => { const scale = Math.min(1, 2200 / Math.max(picture.width, picture.height)); const canvas = document.createElement("canvas"); canvas.width = Math.round(picture.width * scale); canvas.height = Math.round(picture.height * scale); canvas.getContext("2d")?.drawImage(picture, 0, 0, canvas.width, canvas.height); resolve(canvas.toDataURL("image/jpeg", 0.8)); }; picture.onerror = () => reject(new Error("O navegador não conseguiu reduzir a foto. Use JPG ou PNG menor.")); picture.src = original; });
+        mimeType = "image/jpeg";
+      }
+      if (image.length > 3_700_000) throw new Error("A foto continua grande demais. Recorte a ficha e tente novamente.");
+      const response = await fetch("/api/ai/ocr", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image, mimeType }) });
+      const result = await response.json() as { text?: string; error?: string };
+      if (!response.ok || !result.text) throw new Error(result.error ?? "Não foi possível ler a imagem.");
+      setText(result.text); toast.success("Imagem lida. Revise a transcrição antes de organizar.");
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Não foi possível ler a imagem."); }
+    finally { setReadingImage(false); if (imageFile.current) imageFile.current.value = ""; }
   }
   function review() {
     setError("");
@@ -221,21 +246,20 @@ export function ImportWorkout({
             hidden
             onChange={(e) => void loadFile(e.target.files?.[0])}
           />
+          <input ref={imageFile} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif" hidden onChange={(e) => void loadImage(e.target.files?.[0])}/>
           <div className="import-actions">
-            <button className="secondary" onClick={() => file.current?.click()}>
-              <Upload size={16} />
-              Selecionar arquivo
-            </button>
+            <div className="import-upload-group"><button className="secondary" onClick={() => file.current?.click()}><Upload size={16} />Selecionar arquivo</button><button className="secondary" disabled={readingImage} onClick={() => imageFile.current?.click()}>{readingImage ? <LoaderCircle className="spin" size={16}/> : <FileImage size={16}/>} {readingImage ? "Lendo imagem..." : "Ler foto da ficha"}</button></div>
             <button className="text-button" onClick={() => setText(example)}>
               Usar exemplo de formato
             </button>
           </div>
+          {imageName && <div className="image-read-status"><FileImage size={16}/><span><strong>{imageName}</strong>{readingImage ? " está sendo analisada" : " foi transcrita. Confira o texto acima."}</span></div>}
           <p className="small muted">
-            Texto livre, JSON, TXT, CSV, TSV ou MD. Cargas em kg/lbs, descanso,
-            RIR, minutos, segundos e metros são reconhecidos. Confira antes de
-            salvar.
+            Texto livre, foto, JSON, TXT, CSV, TSV ou MD. Cargas em kg/lbs,
+            descanso, RIR, minutos, segundos e metros são reconhecidos. A foto
+            é enviada ao provedor de IA para transcrição e você revisa antes de salvar.
           </p>
-          <button className="primary full" onClick={review}>
+          <button className="primary full" disabled={readingImage} onClick={review}>
             Organizar treino e revisar
           </button>
         </>

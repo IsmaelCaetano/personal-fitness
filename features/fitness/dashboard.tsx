@@ -16,7 +16,6 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { Choice, Modal } from "./shared";
-import { Progress } from "@/components/ui/progress";
 import type { FitnessData, Routine, Session } from "@/lib/fitness/model";
 import {
   calculateWorkoutDuration,
