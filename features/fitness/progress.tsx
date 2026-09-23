@@ -1,6 +1,6 @@
 'use client';
 import {useState} from 'react';
-import {Plus,TrendingUp,Trophy,Ruler} from 'lucide-react';
+import {Plus,TrendingUp,Trophy} from 'lucide-react';
 import {Tabs,TabsContent,TabsList,TabsTrigger} from '@/components/ui/tabs';
 import {Combobox,ComboboxInput,ComboboxContent,ComboboxList,ComboboxItem,ComboboxEmpty} from '@/components/ui/combobox';
 import {toast} from 'sonner';

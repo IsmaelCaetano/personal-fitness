@@ -3,9 +3,7 @@ import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   Check,
-  ChevronRight,
   Clock3,
-  Dumbbell,
   Flag,
   Layers3,
   Plus,
@@ -25,11 +23,11 @@ import type {
 } from "@/lib/fitness/model";
 import { newId } from "@/lib/fitness/model";
 import {
-  calculateEstimated1RM,
   calculateWorkoutDuration,
   calculateWorkoutVolume,
   clock,
   completedSets,
+  currentTimestamp,
   detectPersonalRecord,
   displayWeight,
   fmt,
@@ -54,7 +52,7 @@ export function Workout({
   onFinish: (s: Session) => void;
   onBack: () => void;
 }) {
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(currentTimestamp);
   const [finish, setFinish] = useState(false);
   const [cancel, setCancel] = useState(false);
   const [rest, setRest] = useState<{
@@ -66,22 +64,24 @@ export function Workout({
   useEffect(() => {
     try {
       const cached = sessionStorage.getItem(`rest:${session.id}`);
-      if (cached) setRest(JSON.parse(cached));
+      if (cached) queueMicrotask(() => setRest(JSON.parse(cached)));
     } catch {}
-    const t = setInterval(() => setNow(Date.now()), 1000);
+    const t = setInterval(() => setNow(currentTimestamp()), 1000);
     return () => clearInterval(t);
   }, [session.id]);
   useEffect(() => {
     try {
-      rest
-        ? sessionStorage.setItem(`rest:${session.id}`, JSON.stringify(rest))
-        : sessionStorage.removeItem(`rest:${session.id}`);
+      if (rest) sessionStorage.setItem(`rest:${session.id}`, JSON.stringify(rest));
+      else sessionStorage.removeItem(`rest:${session.id}`);
     } catch {}
   }, [rest, session.id]);
   useEffect(() => {
     if (rest && rest.end <= now) {
-      setRest(null);
-      toast("Descanso concluído. Próxima série!");
+      const timer = setTimeout(() => {
+        setRest(null);
+        toast("Descanso concluído. Próxima série!");
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [rest, now]);
   const changeSet = (

@@ -6,12 +6,10 @@ import {
   Eye,
   CalendarCheck,
   Upload,
-  BookOpen,
   Copy,
   Dumbbell,
   MoreHorizontal,
   Pencil,
-  Play,
   Plus,
   Search,
   Sparkles,
@@ -45,6 +43,7 @@ import {
   type FitnessData,
 } from "@/lib/fitness/model";
 import { ImportWorkout } from "./import-workout";
+import { AIWorkoutBuilder } from "./ai-workout-builder";
 import { library } from "@/lib/fitness/seed";
 import { Choice, Modal, Confirm, EmptyState } from "./shared";
 import type { FitnessStore } from "./use-fitness";
@@ -73,7 +72,6 @@ const equipments = [
 export function Routines({
   data,
   mutate,
-  onStart,
   onExercise,
   onPreview,
   onChoose,
@@ -81,7 +79,6 @@ export function Routines({
 }: {
   data: FitnessData;
   mutate: FitnessStore["mutate"];
-  onStart: (r: Routine) => void;
   onExercise: (id: string) => void;
   onPreview: (r: Routine) => void;
   onChoose: (r: Routine) => void;
@@ -97,6 +94,7 @@ export function Routines({
     exercises: [],
   });
   const [importing, setImporting] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [clearAll, setClearAll] = useState(false);
   const [editing, setEditing] = useState<Routine | null>(
     createInitially ? emptyRoutine() : null,
@@ -114,6 +112,10 @@ export function Routines({
           <p>Organize suas rotinas e faça cada série contar.</p>
         </div>
         <div className="routine-page-actions">
+          <button className="secondary ai-action" onClick={() => setGenerating(true)}>
+            <Sparkles size={18} />
+            Criar com IA
+          </button>
           <button className="secondary" onClick={() => setImporting(true)}>
             <Upload size={18} />
             Organizar meu treino
@@ -264,8 +266,9 @@ export function Routines({
           {!data.routines.length && (
             <EmptyState
               title="Monte seu primeiro treino"
-              description="Adicione os exercícios e defina suas séries."
+              description="Escolha como quer montar seu plano e revise antes de salvar."
             >
+              <button className="secondary" onClick={() => setGenerating(true)}><Sparkles size={17}/>Criar com IA</button>
               <button
                 className="primary"
                 onClick={() => setEditing(emptyRoutine())}
@@ -356,6 +359,7 @@ export function Routines({
           }}
         />
       )}
+      {generating && <AIWorkoutBuilder data={data} exercises={allExercises} onClose={() => setGenerating(false)} onSave={(routines) => { routines.forEach((routine) => mutate("routine", routine)); setGenerating(false); }} />}
       <Confirm
         open={clearAll}
         title="Excluir todas as rotinas?"

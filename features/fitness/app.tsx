@@ -60,18 +60,8 @@ export function FitnessApp({ uid, email }: { uid: string; email: string }) {
   const [resolve, setResolve] = useState(false);
   const [preview, setPreview] = useState<Routine | null>(null);
   useEffect(() => {
-    const hash = window.location.hash.slice(1);
-    if (
-      [
-        "today",
-        "routines",
-        "history",
-        "progress",
-        "profile",
-        "active",
-      ].includes(hash)
-    )
-      setView(hash);
+    const initial = window.location.hash.slice(1);
+    if (["today", "routines", "history", "progress", "profile", "active"].includes(initial)) queueMicrotask(() => setView(initial));
     const listener = () => setView(window.location.hash.slice(1) || "today");
     window.addEventListener("hashchange", listener);
     return () => window.removeEventListener("hashchange", listener);
@@ -82,7 +72,7 @@ export function FitnessApp({ uid, email }: { uid: string; email: string }) {
   }, []);
   useEffect(() => {
     if (data) document.documentElement.dataset.theme = data.profile.theme;
-  }, [data?.profile.theme]);
+  }, [data]);
   const navigate = (next: string) => {
     setView(next);
     if (next !== "routines") setNewRoutine(false);
@@ -358,6 +348,7 @@ export function FitnessApp({ uid, email }: { uid: string; email: string }) {
               {view === "today" && (
                 <Dashboard
                   data={data}
+                  onStart={start}
                   onPreview={setPreview}
                   onChoose={choose}
                   onAuto={() =>
@@ -366,7 +357,6 @@ export function FitnessApp({ uid, email }: { uid: string; email: string }) {
                       todayChoice: undefined,
                     })
                   }
-                  onStart={start}
                   onNavigate={navigate}
                   onSession={setDetails}
                   onFinish={finishSession}
@@ -379,7 +369,6 @@ export function FitnessApp({ uid, email }: { uid: string; email: string }) {
                   onPreview={setPreview}
                   onChoose={choose}
                   mutate={mutate}
-                  onStart={start}
                   createInitially={newRoutine}
                   onExercise={(id) => {
                     setExerciseId(id);

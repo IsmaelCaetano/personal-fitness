@@ -1,4 +1,5 @@
 import type {Session, SessionExercise, WorkoutSet,Plan} from './model';
+export const currentTimestamp=()=>Date.now();
 export const completedSets=(e:SessionExercise)=>e.sets.filter(s=>s.status==='completed');
 export const workingSets=(e:SessionExercise)=>completedSets(e).filter(s=>s.type!=='warmup');
 export const calculateSetVolume=(s:WorkoutSet)=>s.status==='completed'?(s.weight??0)*(s.reps??0):0;
