@@ -1,0 +1,107 @@
+# AGENTS.md
+
+Leia antes de alterar este repositório. A fonte de verdade do produto é `SPEC.md`.
+
+## Stack
+
+- Node.js `>=22.13.0`
+- Next.js `16.3.4`, React `19.2.6`, TypeScript `5.9.3`
+- Supabase JS `2.116.0`, Auth SSR `0.12.7`, Postgres com RLS
+- Zod `3.25.76`
+- pnpm `11.25.0`
+- Produção: Vercel; fonte: GitHub branch `main`
+
+## Comandos canônicos
+
+| O quê | Comando |
+|---|---|
+| Verificação rápida | `pnpm check:fast` |
+| Verificação completa | `pnpm check` |
+| Testes | `pnpm test` |
+| Tipos | `pnpm typecheck` |
+| Lint | `pnpm lint` |
+| Build | `pnpm build` |
+| Desenvolvimento | `pnpm dev` |
+
+Antes de relatar que funciona, rode `pnpm check`. Se não puder, diga exatamente qual etapa não foi executada.
+
+## Mapa do projeto
+
+- `app/page.tsx`: decide entre autenticação e aplicativo.
+- `app/api/fitness/route.ts`: CRUD autenticado, concorrência otimista e limpeza de demo.
+- `app/api/ai/`: geração de treino e OCR; nunca expor a chave.
+- `features/fitness/app.tsx`: navegação e orquestração dos fluxos.
+- `features/fitness/routines.tsx`: lista, edição, importação e entrada do gerador.
+- `features/fitness/import-workout.tsx`: upload/transcrição/revisão de fichas.
+- `features/fitness/profile-onboarding.tsx`: cadastro complementar obrigatório.
+- `lib/fitness/model.ts`: contrato Zod persistido.
+- `lib/fitness/domain.ts`: cálculos puros; teste aqui antes de usar na UI.
+- `lib/fitness/import.ts`: parser determinístico de texto/JSON.
+- `lib/fitness/seed.ts`: biblioteca estática e estado vazio de novas contas.
+- `supabase/schema.sql`: tabela e RLS.
+- `tests/`: testes de domínio e importação.
+
+## Convenções
+
+- Componentes interativos começam com `"use client"`; segredos e provedores externos ficam em rotas server-side.
+- Valores de carga persistem em kg; conversão para lb acontece apenas na apresentação/entrada.
+- Datas de calendário usam `YYYY-MM-DD`; timestamps usam ISO UTC.
+- Toda entidade persistida tem `id` estável e validação Zod.
+- Dados novos usam `newId()`; nunca derive IDs de e-mail ou informação pessoal.
+- Erros de API para o usuário devem ser claros e genéricos; detalhe técnico vai para `console.error` no servidor.
+- Chamadas externas precisam de timeout e limite de payload.
+- IA/OCR nunca persistem por conta própria. Sempre existe preview/revisão e ação explícita.
+- Preserve o tema visual escuro, verde-lima e a responsividade já estabelecida.
+- Use `apply_patch` para editar arquivos; preserve mudanças não relacionadas.
+
+## Variáveis
+
+- `NEXT_PUBLIC_SUPABASE_URL`: URL pública do projeto.
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: chave pública do Supabase.
+- `GEMINI_API_KEY`: segredo server-only para geração e leitura de imagem.
+- Nunca prefixe segredo com `NEXT_PUBLIC_`.
+- `.env.local` não é versionado; `.env.example` contém apenas nomes vazios.
+
+## Decisões já tomadas
+
+- **O produto é multiusuário.** Nunca codifique preferências de Ismael ou de qualquer conta no gerador.
+- **Contas novas ficam vazias.** Biblioteca estática não é histórico nem rotina mockada.
+- **Perfil é por conta.** Altura, peso, objetivos e frequência alimentam a IA dinamicamente.
+- **Gemini Flash-Lite é o provedor inicial.** Suporta texto/imagem e permite um único backend no MVP.
+- **A resposta da IA é não confiável.** Validar JSON, limites e IDs antes de exibir ou salvar.
+- **Imagem não é armazenada.** Ela é enviada em memória para transcrição e descartada após a requisição.
+- **GitHub → Vercel é o fluxo de publicação escolhido pelo usuário.** Não migrar hospedagem silenciosamente.
+- **Histórico real é preservado.** Excluir rotina não exclui sessões concluídas.
+
+## Armadilhas deste ambiente
+
+- **`initialData()` não possui sessões demo.** Testes antigos que acessam `seed.sessions[0]` estão obsoletos; crie fixture explícita.
+- **Commits parciais podem quebrar deploy.** Arquivos de API, schema, UI e tipos de uma feature precisam chegar em um lote coerente.
+- **`profileSchema.goals` exige ao menos um objetivo.** O estado inicial vazio só existe antes do onboarding; não validar esse seed como perfil concluído.
+- **A biblioteca usa IDs `base-*`.** Não reordenar linhas existentes de `seed.ts`, pois isso muda vínculos salvos. Novos exercícios entram no fim.
+- **Local cache pode conter schema anterior.** Migrações de modelo precisam tolerar/normalizar snapshots existentes.
+- **Resultado Gemini pode ser JSON válido e semanticamente ruim.** Sempre compilar contra a biblioteca e o `routineSchema`.
+- **HEIC pode chegar com MIME vazio ou variável.** Validar extensão e normalizar antes da API.
+- **A chave Gemini não existe ainda na produção.** UI deve falhar de forma segura até a variável ser configurada.
+
+## Nunca
+
+- Nunca commitar senha, token, chave ou conteúdo de `.env.local`.
+- Nunca enviar `GEMINI_API_KEY` ao cliente.
+- Nunca usar dados de outra conta para gerar plano.
+- Nunca aceitar resposta de IA sem Zod.
+- Nunca salvar OCR/IA automaticamente.
+- Nunca remover dados reais ao limpar registros demo.
+- Nunca reordenar os exercícios `base-*` existentes.
+- Nunca desabilitar gate para concluir entrega.
+- Nunca relatar deploy pronto sem status final da Vercel.
+
+## Ao mudar código
+
+1. Leia a seção relevante de `SPEC.md`.
+2. Ancore a mudança em um requisito ou atualize a spec antes.
+3. Faça um lote pequeno e revisável.
+4. Rode `pnpm check`.
+5. Verifique entrada vazia, payload inválido, timeout, duplicata e concorrência.
+6. Atualize este arquivo se descobrir uma nova armadilha.
+7. Atualize `TASKS.md` e faça um commit coerente.
