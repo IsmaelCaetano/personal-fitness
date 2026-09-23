@@ -6,10 +6,6 @@ Cada tarefa deve caber em um commit revisável e reversível.
 
 - [ ] **T6** — Configurar `GEMINI_API_KEY` na Vercel e validar geração real · atende `R7`, `R8` · verifica-se: OCR e plano funcionam em produção.
 
-## Fila
-
-- [ ] **T7** — Publicar lote completo pelo GitHub e confirmar a Vercel · atende todos do lote · verifica-se: deploy “Ready” e smoke test público.
-
 ## Anotado durante a implementação
 
 - [ ] Definir rate limit por usuário antes de divulgação pública.
@@ -24,3 +20,4 @@ Cada tarefa deve caber em um commit revisável e reversível.
 - [x] **T3** — Upload e transcrição de imagem com limite de tamanho e revisão de texto.
 - [x] **T4** — Fixtures explícitas substituem dependência dos dados demo.
 - [x] **T5** — Frequência semanal obrigatória de 1 a 7 dias no onboarding.
+- [x] **T7** — Lote completo integrado no PR #1 (`8bb63a1`); Vercel Production “Ready” e tela pública de acesso verificada.
