@@ -1,0 +1,465 @@
+"use client";
+import { useRef, useState } from "react";
+import { Check, FileText, Plus, Trash2, Upload } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Combobox,
+  ComboboxInput,
+  ComboboxContent,
+  ComboboxList,
+  ComboboxItem,
+  ComboboxEmpty,
+} from "@/components/ui/combobox";
+import { toast } from "sonner";
+import { Modal } from "./shared";
+import {
+  parseWorkoutText,
+  compileImport,
+  type ImportDraft,
+  type ImportRow,
+} from "@/lib/fitness/import";
+import {
+  newId,
+  routineSchema,
+  type Exercise,
+  type Routine,
+} from "@/lib/fitness/model";
+const example =
+  "SEMANA PADRÃO\n\nDia 1 — Treino A\nDia 2 — Corrida Leve\nDia 3 — Recuperação\n\nTreino A — Full Body\nLeg Press — 3x8-12 — 200 kg — descanso 120s — RIR 2-3\nSupino Máquina — 3x8-12 — 60 kg — descanso 120s\n\nCorrida Leve\nAquecimento — 5 min — 5,5 km/h\nCorrida Leve — 25 min — 7,0 a 7,5 km/h — RPE 3-5\n\nRecuperação\nShort Foot — 2x8 — segurar 5s\nEquilíbrio Unilateral — 2x20-30s por lado";
+const jsonExample = JSON.stringify(
+  {
+    routines: [
+      {
+        name: "Treino A",
+        days: [1, 4],
+        exercises: [
+          {
+            name: "Leg Press",
+            sets: 3,
+            reps: "8-12",
+            weight: "200 kg",
+            rest: 120,
+            notes: "RIR 2-3",
+            alternatives: ["Agachamento livre", "Cadeira extensora"],
+          },
+        ],
+      },
+    ],
+  },
+  null,
+  2,
+);
+export function ImportWorkout({
+  exercises,
+  routines,
+  rest,
+  onClose,
+  onImport,
+}: {
+  exercises: Exercise[];
+  routines: Routine[];
+  rest: number;
+  onClose: () => void;
+  onImport: (
+    result: { routines: Routine[]; custom: Exercise[] },
+    removeIds: string[],
+  ) => void;
+}) {
+  const [text, setText] = useState("");
+  const [drafts, setDrafts] = useState<ImportDraft[] | null>(null);
+  const [remove, setRemove] = useState<string[]>([]);
+  const [confirmed, setConfirmed] = useState(false);
+  const [error, setError] = useState("");
+  const file = useRef<HTMLInputElement>(null);
+  function patch(did: string, rid: string, values: Partial<ImportRow>) {
+    setDrafts((previous) =>
+      previous!.map((d) =>
+        d.id === did
+          ? {
+              ...d,
+              rows: d.rows.map((r) => (r.id === rid ? { ...r, ...values } : r)),
+            }
+          : d,
+      ),
+    );
+  }
+  async function loadFile(file: File | undefined) {
+    if (!file) return;
+    if (file.size > 250000) {
+      setError("Use um arquivo de texto com até 250 KB.");
+      return;
+    }
+    if (!/\.(txt|csv|tsv|md|json)$/i.test(file.name)) {
+      setError(
+        "Use JSON, TXT, CSV, TSV ou MD. Para PDF ou foto, copie o texto da ficha e cole abaixo.",
+      );
+      return;
+    }
+    setText(await file.text());
+    setError("");
+  }
+  function review() {
+    setError("");
+    if (!text.trim()) {
+      setError("Cole sua ficha ou selecione um arquivo de texto.");
+      return;
+    }
+    const parsed = parseWorkoutText(text, exercises, rest);
+    if (!parsed.length) {
+      setError("Nenhum exercício encontrado. Confira o guia de formato.");
+      return;
+    }
+    if (parsed.length > 12) {
+      setError(
+        `Foram detectadas ${parsed.length} rotinas. Use um título em uma linha e os exercícios logo abaixo, conforme o guia.`,
+      );
+      return;
+    }
+    setDrafts(parsed);
+  }
+  function commit() {
+    try {
+      if (!drafts) return;
+      for (const d of drafts)
+        for (const r of d.rows)
+          if (!r.name.trim())
+            throw new Error("Preencha o nome de todos os exercícios.");
+      const result = compileImport(drafts, exercises);
+      for (const r of result.routines) {
+        const valid = routineSchema.safeParse(r);
+        if (!valid.success)
+          throw new Error(
+            `Confira ${r.name}: ${valid.error.issues[0].message}`,
+          );
+      }
+      if (remove.length && !confirmed)
+        throw new Error("Confirme a exclusão das rotinas selecionadas.");
+      onImport(result, remove);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Revise a ficha.");
+    }
+  }
+  return (
+    <Modal
+      open
+      wide
+      title={drafts ? "Confira sua ficha" : "Organizar e importar meu treino"}
+      description={
+        drafts
+          ? "Revise nomes e números antes de adicionar. Nada foi salvo ainda."
+          : "Cole uma descrição do seu treino. O organizador identifica rotinas, exercícios, séries, repetições e descanso."
+      }
+      onClose={onClose}
+    >
+      {!drafts && (
+        <details className="import-guide" open>
+          <summary>Guia do formato recomendado</summary>
+          <div className="import-guide-body">
+            <ol>
+              <li>Escreva o nome da rotina sozinho em uma linha.</li>
+              <li>Logo abaixo, coloque um exercício por linha.</li>
+              <li>
+                Use a ordem: exercício — séries e repetições — carga — descanso
+                — observações.
+              </li>
+              <li>
+                Para uma semana pronta, comece com linhas como “Dia 1 — Treino
+                A”. Linhas vazias são opcionais.
+              </li>
+              <li>
+                As substituições são sugeridas automaticamente. No JSON, use
+                “alternatives” com nomes de exercícios para ajustar as escolhas.
+              </li>
+            </ol>
+            <code>Leg Press — 3x8-12 — 200 kg — descanso 120s — RIR 2-3</code>
+            <div className="guide-actions">
+              <button
+                className="secondary"
+                type="button"
+                onClick={() => setText(example)}
+              >
+                Inserir modelo em texto
+              </button>
+              <button
+                className="secondary"
+                type="button"
+                onClick={() => setText(jsonExample)}
+              >
+                Inserir modelo JSON
+              </button>
+            </div>
+          </div>
+        </details>
+      )}
+      {!drafts ? (
+        <>
+          <div className="import-format">
+            <FileText size={21} />
+            <div>
+              <strong>Pode escrever do seu jeito</strong>
+              <p>
+                Cole inclusive uma semana inteira com “Dia 1”, musculação,
+                corrida e mobilidade. JSON também é aceito.
+              </p>
+            </div>
+          </div>
+          <label className="import-input-label">
+            Sua ficha
+            <textarea
+              rows={12}
+              value={text}
+              maxLength={50000}
+              onChange={(e) => setText(e.target.value)}
+              placeholder={example}
+              aria-label="Texto da ficha de treino"
+            />
+          </label>
+          <input
+            ref={file}
+            type="file"
+            accept=".json,.txt,.csv,.tsv,.md,application/json,text/plain,text/csv,text/tab-separated-values,text/markdown"
+            hidden
+            onChange={(e) => void loadFile(e.target.files?.[0])}
+          />
+          <div className="import-actions">
+            <button className="secondary" onClick={() => file.current?.click()}>
+              <Upload size={16} />
+              Selecionar arquivo
+            </button>
+            <button className="text-button" onClick={() => setText(example)}>
+              Usar exemplo de formato
+            </button>
+          </div>
+          <p className="small muted">
+            Texto livre, JSON, TXT, CSV, TSV ou MD. Cargas em kg/lbs, descanso,
+            RIR, minutos, segundos e metros são reconhecidos. Confira antes de
+            salvar.
+          </p>
+          <button className="primary full" onClick={review}>
+            Organizar treino e revisar
+          </button>
+        </>
+      ) : (
+        <>
+          <div className="import-summary">
+            <Check size={19} />
+            {drafts.length} rotina(s) ·{" "}
+            {drafts.reduce((n, d) => n + d.rows.length, 0)} exercícios
+          </div>
+          {drafts.map((d) => (
+            <section key={d.id} className="import-routine">
+              <label>
+                Nome da rotina
+                <input
+                  value={d.name}
+                  maxLength={80}
+                  onChange={(e) =>
+                    setDrafts(
+                      drafts.map((x) =>
+                        x.id === d.id ? { ...x, name: e.target.value } : x,
+                      ),
+                    )
+                  }
+                />
+              </label>
+              {d.rows.map((r, i) => (
+                <div className="import-row" key={r.id}>
+                  <div className="import-row-title">
+                    <strong>{i + 1}.</strong>
+                    <input
+                      aria-label={`Nome do exercício ${i + 1}`}
+                      value={r.name}
+                      maxLength={120}
+                      onChange={(e) =>
+                        patch(d.id, r.id, {
+                          name: e.target.value,
+                          exerciseId: null,
+                        })
+                      }
+                    />
+                    <button
+                      className="icon-button"
+                      aria-label={`Remover ${r.name}`}
+                      onClick={() =>
+                        setDrafts(
+                          drafts.map((x) =>
+                            x.id === d.id
+                              ? {
+                                  ...x,
+                                  rows: x.rows.filter((row) => row.id !== r.id),
+                                }
+                              : x,
+                          ),
+                        )
+                      }
+                    >
+                      <Trash2 size={17} />
+                    </button>
+                  </div>
+                  <div className="import-match">
+                    <span>
+                      {r.exerciseId
+                        ? "Vinculado à biblioteca"
+                        : "Novo exercício personalizado"}
+                    </span>
+                    <Combobox<Exercise>
+                      items={exercises}
+                      value={
+                        exercises.find((e) => e.id === r.exerciseId) ?? null
+                      }
+                      itemToStringLabel={(e) => e.name}
+                      onValueChange={(e) => {
+                        if (e)
+                          patch(d.id, r.id, { exerciseId: e.id, name: e.name });
+                      }}
+                    >
+                      <ComboboxInput
+                        placeholder="Associar a um exercício da biblioteca..."
+                        aria-label={`Vincular ${r.name}`}
+                      />
+                      <ComboboxContent>
+                        <ComboboxEmpty>
+                          Sem correspondência. Será criado como personalizado.
+                        </ComboboxEmpty>
+                        <ComboboxList>
+                          {(e: Exercise) => (
+                            <ComboboxItem key={e.id} value={e}>
+                              {e.name}
+                            </ComboboxItem>
+                          )}
+                        </ComboboxList>
+                      </ComboboxContent>
+                    </Combobox>
+                  </div>
+                  <div className="plan-fields">
+                    <label>
+                      Séries
+                      <input
+                        type="number"
+                        min={1}
+                        max={12}
+                        value={r.sets}
+                        onChange={(e) =>
+                          patch(d.id, r.id, { sets: Number(e.target.value) })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Reps mín.
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={r.minReps}
+                        onChange={(e) =>
+                          patch(d.id, r.id, { minReps: Number(e.target.value) })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Reps máx.
+                      <input
+                        type="number"
+                        min={r.minReps}
+                        max={100}
+                        value={r.maxReps}
+                        onChange={(e) =>
+                          patch(d.id, r.id, { maxReps: Number(e.target.value) })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Descanso (s)
+                      <input
+                        type="number"
+                        min={0}
+                        max={900}
+                        value={r.rest}
+                        onChange={(e) =>
+                          patch(d.id, r.id, { rest: Number(e.target.value) })
+                        }
+                      />
+                    </label>
+                  </div>
+                  <p className="import-target">
+                    Alvo: <strong>{r.targetText}</strong>
+                    {r.loadText ? ` · Carga: ${r.loadText}` : ""}
+                  </p>
+                  {r.issue && <p className="import-warning">{r.issue}</p>}
+                  <label className="import-notes">
+                    Observações
+                    <input
+                      value={r.notes}
+                      maxLength={2000}
+                      onChange={(e) =>
+                        patch(d.id, r.id, { notes: e.target.value })
+                      }
+                    />
+                  </label>
+                </div>
+              ))}
+            </section>
+          ))}
+          {routines.length > 0 && (
+            <section className="import-replace">
+              <h3>Excluir alguma rotina antiga?</h3>
+              <p>
+                Apenas as rotinas marcadas serão excluídas. Seus treinos já
+                registrados serão preservados.
+              </p>
+              <div className="replace-options">
+                {routines.map((r) => (
+                  <label key={r.id}>
+                    <Checkbox
+                      checked={remove.includes(r.id)}
+                      onCheckedChange={(checked) => {
+                        setRemove(
+                          checked
+                            ? [...remove, r.id]
+                            : remove.filter((id) => id !== r.id),
+                        );
+                        setConfirmed(false);
+                      }}
+                    />
+                    {r.name}
+                  </label>
+                ))}
+              </div>
+              {remove.length > 0 && (
+                <label className="delete-confirm-label">
+                  <Checkbox
+                    checked={confirmed}
+                    onCheckedChange={(v) => setConfirmed(!!v)}
+                  />
+                  Confirmo a exclusão de {remove.length} rotina(s)
+                  selecionada(s).
+                </label>
+              )}
+            </section>
+          )}
+          <div className="form-actions">
+            <button className="secondary" onClick={() => setDrafts(null)}>
+              Voltar ao texto
+            </button>
+            <button
+              className="primary"
+              disabled={
+                !drafts.some((d) => d.rows.length) ||
+                (!!remove.length && !confirmed)
+              }
+              onClick={commit}
+            >
+              <Check size={17} />
+              Importar {drafts.length} rotina(s)
+            </button>
+          </div>
+        </>
+      )}
+      {error && (
+        <p role="alert" className="error-text">
+          {error}
+        </p>
+      )}
+    </Modal>
+  );
+}

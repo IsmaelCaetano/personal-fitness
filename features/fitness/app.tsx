@@ -1,0 +1,551 @@
+"use client";
+import { useEffect, useState } from "react";
+import {
+  Activity,
+  ArrowUpRight,
+  Check,
+  ChevronRight,
+  CloudCheck,
+  Dumbbell,
+  House,
+  ChartNoAxesCombined,
+  History,
+  LoaderCircle,
+  Plus,
+  UserRound,
+  WifiOff,
+  X,
+} from "lucide-react";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+} from "@/components/ui/sidebar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Toaster } from "@/components/ui/sonner";
+import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "sonner";
+import { Confirm } from "./shared";
+import { RoutinePreview } from "./routine-preview";
+import { Dashboard } from "./dashboard";
+import { Routines } from "./routines";
+import { Workout } from "./workout";
+import { History as HistoryPage, SessionDetails } from "./history";
+import { ProgressPage } from "./progress";
+import { ProfilePage, goals } from "./profile";
+import { useFitness } from "./use-fitness";
+import { library } from "@/lib/fitness/seed";
+import { newId, type Routine, type Session } from "@/lib/fitness/model";
+import {
+  completedSets,
+  getPreviousExercisePerformance,
+  localDate,
+} from "@/lib/fitness/domain";
+import { alternativesFor } from "@/lib/fitness/recommendations";
+const navigation = [
+  { id: "today", label: "Hoje", icon: House },
+  { id: "routines", label: "Treinos", icon: Dumbbell },
+  { id: "history", label: "Histórico", icon: History },
+  { id: "progress", label: "Progresso", icon: ChartNoAxesCombined },
+  { id: "profile", label: "Perfil", icon: UserRound },
+];
+export function FitnessApp({ uid, email }: { uid: string; email: string }) {
+  const store = useFitness(uid);
+  const { data, mutate } = store;
+  const [view, setView] = useState("today");
+  const [details, setDetails] = useState<Session | null>(null);
+  const [exerciseId, setExerciseId] = useState<string>();
+  const [newRoutine, setNewRoutine] = useState(false);
+  const [resolve, setResolve] = useState(false);
+  const [preview, setPreview] = useState<Routine | null>(null);
+  useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    if (
+      [
+        "today",
+        "routines",
+        "history",
+        "progress",
+        "profile",
+        "active",
+      ].includes(hash)
+    )
+      setView(hash);
+    const listener = () => setView(window.location.hash.slice(1) || "today");
+    window.addEventListener("hashchange", listener);
+    return () => window.removeEventListener("hashchange", listener);
+  }, []);
+  useEffect(() => {
+    if ("serviceWorker" in navigator)
+      void navigator.serviceWorker.register("/sw.js");
+  }, []);
+  useEffect(() => {
+    if (data) document.documentElement.dataset.theme = data.profile.theme;
+  }, [data?.profile.theme]);
+  const navigate = (next: string) => {
+    setView(next);
+    if (next !== "routines") setNewRoutine(false);
+    window.history.pushState(null, "", `#${next}`);
+    window.scrollTo({ top: 0 });
+  };
+  function start(r: Routine, substitutions?: Record<string, string>) {
+    if (!data) return;
+    if (data.sessions.some((s) => s.status === "active")) {
+      navigate("active");
+      toast("Você já tem um treino em andamento.");
+      return;
+    }
+    if (!r.exercises.length) {
+      toast.error("Adicione exercícios à rotina antes de iniciar.");
+      return;
+    }
+    const exercises = [...library, ...data.exercises];
+    if (
+      substitutions === undefined &&
+      r.exercises.some(
+        (p) =>
+          alternativesFor(p.exerciseId, p.alternativeExerciseIds, exercises)
+            .length,
+      )
+    ) {
+      setPreview(r);
+      return;
+    }
+    const chosen = substitutions ?? {};
+    const session: Session = {
+      id: newId(),
+      routineId: r.id,
+      name: r.name,
+      startedAt: new Date().toISOString(),
+      finishedAt: null,
+      status: "active",
+      notes: "",
+      isDemo: false,
+      exercises: r.exercises.map((p) => {
+        const requested = chosen[p.id];
+        const exerciseId =
+          requested &&
+          alternativesFor(
+            p.exerciseId,
+            p.alternativeExerciseIds,
+            exercises,
+          ).includes(requested)
+            ? requested
+            : p.exerciseId;
+        const exercise =
+          exercises.find((e) => e.id === exerciseId) ??
+          exercises.find((e) => e.id === p.exerciseId)!;
+        const old = getPreviousExercisePerformance(data.sessions, exercise.id);
+        const previous = old?.exercise ? completedSets(old.exercise) : [];
+        const activity = p.targetType && p.targetType !== "reps";
+        return {
+          id: newId(),
+          exercise: { ...exercise },
+          plan: { ...p },
+          sets: Array.from({ length: p.sets }, (_, i) => ({
+            id: newId(),
+            weight:
+              previous[i]?.weight ??
+              (activity ? 0 : (p.suggestedWeight ?? null)),
+            reps:
+              previous[i]?.reps ?? (activity ? Math.max(1, p.minReps) : null),
+            rir: null,
+            rpe: null,
+            type: "normal",
+            status: "pending",
+            notes: "",
+            completedAt: null,
+          })),
+        };
+      }),
+    };
+    mutate("session", session);
+    navigate("active");
+  }
+  const choose = (r: Routine) => {
+    if (!data) return;
+    mutate("profile", {
+      ...data.profile,
+      todayChoice: { date: localDate(), routineId: r.id },
+    });
+    toast.success(`${r.name} escolhido para hoje`);
+    navigate("today");
+  };
+  const finishSession = (session: Session) => {
+    mutate("session", session);
+    navigate("history");
+    setDetails(session);
+    toast.success(
+      session.status === "completed"
+        ? "Treino concluído. Bom trabalho!"
+        : "Treino cancelado.",
+    );
+  };
+  const addActivity = (session: Session) => {
+    mutate("session", session);
+    navigate("history");
+    setDetails(session);
+    toast.success(`${session.name} registrado no histórico`);
+  };
+  const active = data?.sessions.find((s) => s.status === "active");
+  const selected = view === "active" ? "today" : view;
+  const statusLabel =
+    store.status === "loading"
+      ? "Carregando..."
+      : store.status === "saving"
+        ? "Salvando..."
+        : store.status === "offline"
+          ? store.localSafe
+            ? "Salvo neste aparelho"
+            : "Não salvo"
+          : store.status === "error"
+            ? "Erro ao salvar"
+            : "Tudo salvo";
+  return (
+    <SidebarProvider>
+      <Sidebar collapsible="none" className="fitness-sidebar">
+        <SidebarHeader className="brand">
+          <div className="brand-icon">
+            <Dumbbell size={25} />
+          </div>
+          <div>
+            personal
+            <span>
+              fitness<span className="brand-dot">.</span>
+            </span>
+          </div>
+        </SidebarHeader>
+        <SidebarContent>
+          <div className="nav-label">SEU ESPAÇO</div>
+          <SidebarMenu>
+            {navigation.map(({ id, label, icon: Icon }) => (
+              <SidebarMenuItem key={id}>
+                <SidebarMenuButton
+                  isActive={selected === id}
+                  onClick={() => navigate(id)}
+                  className="fitness-nav-item"
+                >
+                  <Icon />
+                  <span>{label}</span>
+                  {selected === id && <span className="nav-indicator" />}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+          {active && (
+            <button
+              className="sidebar-active"
+              onClick={() => navigate("active")}
+            >
+              <Activity size={18} />
+              <span>
+                Treino em andamento<strong>{active.name}</strong>
+              </span>
+              <ChevronRight size={17} />
+            </button>
+          )}
+        </SidebarContent>
+        <SidebarFooter>
+          <div className="sidebar-mantra">
+            <div className="eyebrow">
+              FEITO É MELHOR
+              <br />
+              QUE PERFEITO.
+            </div>
+            <p>Volte. Registre. Evolua.</p>
+          </div>
+          <button
+            className="sidebar-profile"
+            onClick={() => navigate("profile")}
+          >
+            <span className="avatar">
+              {data?.profile.name.slice(0, 1) ?? "I"}
+            </span>
+            <span>
+              <strong>{data?.profile.name ?? "Ismael"}</strong>
+              <small>Meu espaço pessoal</small>
+            </span>
+            <ChevronRight size={17} />
+          </button>
+        </SidebarFooter>
+      </Sidebar>
+      <div className="app-main">
+        <header className="topbar">
+          <div className="breadcrumb">
+            <span className="mobile-brand">
+              <Dumbbell size={21} />
+            </span>
+            <span>Personal Fitness</span>
+            <ChevronRight size={14} />
+            <strong>
+              {navigation.find((n) => n.id === selected)?.label ?? "Hoje"}
+            </strong>
+          </div>
+          <div className="topbar-right">
+            <span
+              className={`save-status ${store.status === "error" ? "error-text" : ""}`}
+              role="status"
+            >
+              {store.status === "saving" ? (
+                <LoaderCircle size={15} className="spin" />
+              ) : store.status === "offline" || !store.online ? (
+                <WifiOff size={15} />
+              ) : (
+                <CloudCheck size={15} />
+              )}
+              <span>
+                {!store.online && store.status === "saved"
+                  ? "Sem conexão"
+                  : statusLabel}
+              </span>
+            </span>
+            <button
+              className="avatar"
+              onClick={() => navigate("profile")}
+              aria-label="Abrir perfil"
+            >
+              {data?.profile.name.slice(0, 1) ?? "I"}
+            </button>
+          </div>
+        </header>
+        <main className="content-area">
+          {store.error && (
+            <div className="error-banner" role="alert">
+              <span>{store.error}</span>
+              <button
+                onClick={() =>
+                  store.conflict
+                    ? setResolve(true)
+                    : data
+                      ? store.retry()
+                      : store.reload()
+                }
+              >
+                {store.conflict ? "Resolver conflito" : "Tentar novamente"}
+              </button>
+            </div>
+          )}
+          {!data ? (
+            <div className="loading-page">
+              <Skeleton className="h-12 w-2/3" />
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-64 w-full" />
+              <p>
+                {store.status === "error"
+                  ? "Seus dados não puderam ser carregados."
+                  : "Preparando seu espaço de treino..."}
+              </p>
+              {store.error.includes("Entre") && (
+                <a
+                  href="/signin-with-chatgpt?return_to=%2F"
+                  target="_top"
+                  className="primary"
+                >
+                  Entrar com ChatGPT
+                </a>
+              )}
+            </div>
+          ) : (
+            <>
+              {!data.profile.onboarded && view === "today" && (
+                <div className="onboarding">
+                  <div>
+                    <strong>Seu espaço está pronto, Ismael.</strong>
+                    <p>
+                      Confira seus objetivos e comece com as rotinas de exemplo.
+                    </p>
+                    <div className="onboarding-goals">
+                      {goals.map((g) => (
+                        <label key={g}>
+                          <Checkbox
+                            checked={data.profile.goals.includes(g)}
+                            onCheckedChange={(checked) =>
+                              mutate("profile", {
+                                ...data.profile,
+                                goals: checked
+                                  ? [...data.profile.goals, g]
+                                  : data.profile.goals.filter((x) => x !== g),
+                              })
+                            }
+                          />
+                          {g}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="onboarding-actions">
+                    <button
+                      className="primary"
+                      onClick={() =>
+                        mutate("profile", { ...data.profile, onboarded: true })
+                      }
+                    >
+                      Usar rotinas exemplo
+                      <Check size={16} />
+                    </button>
+                    <button
+                      className="text-button"
+                      onClick={() => {
+                        mutate("profile", { ...data.profile, onboarded: true });
+                        data.routines.forEach((r) =>
+                          mutate("routine", r, true),
+                        );
+                        data.sessions
+                          .filter((s) => s.isDemo)
+                          .forEach((s) => mutate("session", s, true));
+                        setNewRoutine(true);
+                        navigate("routines");
+                      }}
+                    >
+                      Criar do zero
+                      <ArrowUpRight size={15} />
+                    </button>
+                  </div>
+                </div>
+              )}
+              {view === "today" && (
+                <Dashboard
+                  data={data}
+                  onPreview={setPreview}
+                  onChoose={choose}
+                  onAuto={() =>
+                    mutate("profile", {
+                      ...data.profile,
+                      todayChoice: undefined,
+                    })
+                  }
+                  onStart={start}
+                  onNavigate={navigate}
+                  onSession={setDetails}
+                  onFinish={finishSession}
+                  onAddActivity={addActivity}
+                />
+              )}{" "}
+              {view === "routines" && (
+                <Routines
+                  data={data}
+                  onPreview={setPreview}
+                  onChoose={choose}
+                  mutate={mutate}
+                  onStart={start}
+                  createInitially={newRoutine}
+                  onExercise={(id) => {
+                    setExerciseId(id);
+                    navigate("progress");
+                  }}
+                />
+              )}
+              {view === "active" &&
+                (active ? (
+                  <Workout
+                    session={active}
+                    data={data}
+                    onChange={(s) => mutate("session", s)}
+                    onFinish={finishSession}
+                    onBack={() => navigate("today")}
+                  />
+                ) : (
+                  <Dashboard
+                    data={data}
+                    onPreview={setPreview}
+                    onChoose={choose}
+                    onAuto={() =>
+                      mutate("profile", {
+                        ...data.profile,
+                        todayChoice: undefined,
+                      })
+                    }
+                    onStart={start}
+                    onNavigate={navigate}
+                    onSession={setDetails}
+                    onFinish={finishSession}
+                    onAddActivity={addActivity}
+                  />
+                ))}
+              {view === "history" && (
+                <HistoryPage
+                  data={data}
+                  onSession={setDetails}
+                  onAdd={(session) => {
+                    mutate("session", session);
+                    toast.success("Treino antigo adicionado ao histórico");
+                  }}
+                  onDelete={(session) => {
+                    mutate("session", session, true);
+                    if (details?.id === session.id) setDetails(null);
+                    toast.success("Registro excluído do histórico");
+                  }}
+                />
+              )}{" "}
+              {view === "progress" && (
+                <ProgressPage
+                  key={exerciseId ?? "progress"}
+                  data={data}
+                  mutate={mutate}
+                  initialExercise={exerciseId}
+                />
+              )}{" "}
+              {view === "profile" && (
+                <ProfilePage data={data} email={email} mutate={mutate} />
+              )}{" "}
+              {preview && (
+                <RoutinePreview
+                  routine={preview}
+                  data={data}
+                  onClose={() => setPreview(null)}
+                  onStart={start}
+                  onChoose={choose}
+                />
+              )}{" "}
+              {details && (
+                <SessionDetails
+                  session={details}
+                  data={data}
+                  onClose={() => setDetails(null)}
+                />
+              )}
+            </>
+          )}
+        </main>
+        <footer className="app-footer">
+          <span>Personal Fitness</span>
+          <span>Seu progresso. No seu ritmo.</span>
+        </footer>
+      </div>
+      <nav className="bottom-nav" aria-label="Navegação principal">
+        {navigation.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => navigate(id)}
+            className={selected === id ? "active" : ""}
+            aria-current={selected === id ? "page" : undefined}
+          >
+            <Icon size={21} />
+            <span>{label}</span>
+          </button>
+        ))}
+      </nav>
+      <Confirm
+        open={resolve}
+        title="Manter as alterações deste aparelho?"
+        description="O mesmo registro foi alterado em outra aba ou aparelho. Ao continuar, os registros que você editou aqui substituirão as versões salvas na nuvem. Os demais registros serão preservados."
+        action="Manter minhas alterações"
+        onClose={() => setResolve(false)}
+        onConfirm={() => {
+          setResolve(false);
+          void store.resolveConflict();
+        }}
+      />
+      <Toaster
+        position="top-center"
+        theme={data?.profile.theme ?? "dark"}
+        richColors
+      />
+    </SidebarProvider>
+  );
+}
