@@ -468,13 +468,18 @@ export function FitnessApp({ uid, email }: { uid: string; email: string }) {
       </nav>
       <Confirm
         open={resolve}
-        title="Manter as alterações deste aparelho?"
-        description="O mesmo registro foi alterado em outra aba ou aparelho. Ao continuar, os registros que você editou aqui substituirão as versões salvas na nuvem. Os demais registros serão preservados."
+        title="Qual versão das alterações você quer manter?"
+        description="Há versões diferentes do mesmo registro neste aparelho e na nuvem. Manter as alterações deste aparelho substitui somente os registros em conflito; usar a nuvem descarta somente essas alterações pendentes. Os outros treinos e o histórico ficam preservados."
         action="Manter minhas alterações"
+        secondaryAction="Usar versão da nuvem"
         onClose={() => setResolve(false)}
+        onSecondary={() => {
+          setResolve(false);
+          void store.resolveConflict('cloud');
+        }}
         onConfirm={() => {
           setResolve(false);
-          void store.resolveConflict();
+          void store.resolveConflict('local');
         }}
       />
       <Toaster

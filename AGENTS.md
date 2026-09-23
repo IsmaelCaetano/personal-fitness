@@ -80,6 +80,7 @@ Antes de relatar que funciona, rode `pnpm check`. Se não puder, diga exatamente
 - **`profileSchema.goals` exige ao menos um objetivo.** O estado inicial vazio só existe antes do onboarding; não validar esse seed como perfil concluído.
 - **A biblioteca usa IDs `base-*`.** Não reordenar linhas existentes de `seed.ts`, pois isso muda vínculos salvos. Novos exercícios entram no fim.
 - **Local cache pode conter schema anterior.** Migrações de modelo precisam tolerar/normalizar snapshots existentes.
+- **Uma resposta de salvamento pode se perder após o commit no Supabase.** Antes de reenviar a fila local, compare cada alteração com o registro do servidor; conteúdo já salvo deve sair da fila, mas versões realmente diferentes exigem escolha do usuário. Nunca limpe toda a fila para resolver um conflito isolado.
 - **Resultado Gemini pode ser JSON válido e semanticamente ruim.** Sempre compilar contra a biblioteca e o `routineSchema`.
 - **HEIC pode chegar com MIME vazio ou variável.** Validar extensão e normalizar antes da API.
 - **A chave Gemini foi adicionada à Production na Vercel em 2026-09-23.** O primeiro teste revelou que `gemini-2.5-flash-lite` não está disponível para novas contas; o endpoint foi atualizado para `gemini-3.5-flash-lite` no commit `ba96ed4`. Ainda falta validar geração e OCR autenticados após o deploy.
