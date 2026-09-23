@@ -24,7 +24,7 @@ import {
   type Routine,
 } from "@/lib/fitness/model";
 const example =
-  "SEMANA PADRÃO\n\nDia 1 — Treino A\nDia 2 — Corrida Leve\nDia 3 — Recuperação\n\nTreino A — Full Body\nLeg Press — 3x8-12 — 200 kg — descanso 120s — RIR 2-3\nSupino Máquina — 3x8-12 — 60 kg — descanso 120s\n\nCorrida Leve\nAquecimento — 5 min — 5,5 km/h\nCorrida Leve — 25 min — 7,0 a 7,5 km/h — RPE 3-5\n\nRecuperação\nShort Foot — 2x8 — segurar 5s\nEquilíbrio Unilateral — 2x20-30s por lado";
+  "SEMANA PADRÃO\nDia 1 — Segunda: Push (manhã) + Pull (noite)\nDia 2 — Terça: Pernas + futebol\nDia 7 — Domingo: descanso\n\nSEGUNDA — PUSH (MANHÃ)\nSupino reto — 3×6–8 — cargas alvo: 100 / 110 / 120 kg — descanso 180 s\nCrossover — 3×10–12 — 1–2 repetições de reserva — descanso 90 s\n\nSEGUNDA — PULL (NOITE)\nPuxada alta — 3×8–12 — aumentar a carga a cada série — descanso 120 s\n\nTERÇA — PERNAS\nLeg press — 3×10–12 — começar com 160–200 kg — descanso 180 s\nCardio — futebol, aproximadamente 1 h.\n\nDOMINGO — DESCANSO";
 const jsonExample = JSON.stringify(
   {
     routines: [
@@ -181,22 +181,22 @@ export function ImportWorkout({
           <summary>Guia do formato recomendado</summary>
           <div className="import-guide-body">
             <ol>
-              <li>Escreva o nome da rotina sozinho em uma linha.</li>
+              <li>Uma semana pode ter duas sessões no mesmo dia: use títulos como “SEGUNDA — PUSH (MANHÃ)” e “SEGUNDA — PULL (NOITE)”.</li>
               <li>Logo abaixo, coloque um exercício por linha.</li>
               <li>
                 Use a ordem: exercício — séries e repetições — carga — descanso
                 — observações.
               </li>
               <li>
-                Para uma semana pronta, comece com linhas como “Dia 1 — Treino
-                A”. Linhas vazias são opcionais.
+                A agenda aceita “Dia 1 — Segunda: Push + Pull”, cardio no fim da sessão e “DOMINGO — DESCANSO”. O descanso não cria um treino.
               </li>
+              <li>Cargas por série (“100 / 110 / 120 kg”), carga por lado, metas condicionais e minutos são mantidos na prévia. Confira cada associação antes de salvar.</li>
               <li>
                 As substituições são sugeridas automaticamente. No JSON, use
                 “alternatives” com nomes de exercícios para ajustar as escolhas.
               </li>
             </ol>
-            <code>Leg Press — 3x8-12 — 200 kg — descanso 120s — RIR 2-3</code>
+            <code>Supino reto — 3×6–8 — cargas alvo: 100 / 110 / 120 kg — descanso 180 s</code>
             <div className="guide-actions">
               <button
                 className="secondary"
@@ -223,8 +223,8 @@ export function ImportWorkout({
             <div>
               <strong>Pode escrever do seu jeito</strong>
               <p>
-                Cole inclusive uma semana inteira com “Dia 1”, musculação,
-                corrida e mobilidade. JSON também é aceito.
+                Cole uma semana inteira, inclusive duas sessões no mesmo dia,
+                futebol, cardio e descanso. JSON também é aceito.
               </p>
             </div>
           </div>
@@ -286,6 +286,14 @@ export function ImportWorkout({
                   }
                 />
               </label>
+              <div className="import-day-picker">
+                <span>Dia(s) da semana</span>
+                <div>
+                  {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((label, day) => (
+                    <button key={day} type="button" className={d.days.includes(day) ? "selected" : ""} aria-pressed={d.days.includes(day)} aria-label={`${label} para ${d.name}`} onClick={() => setDrafts(drafts.map((item) => item.id === d.id ? { ...item, days: item.days.includes(day) ? item.days.filter((value) => value !== day) : [...item.days, day] } : item))}>{label}</button>
+                  ))}
+                </div>
+              </div>
               {d.rows.map((r, i) => (
                 <div className="import-row" key={r.id}>
                   <div className="import-row-title">

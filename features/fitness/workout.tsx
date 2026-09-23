@@ -667,7 +667,7 @@ function WorkoutSubstitutions({
                 ...set,
                 weight:
                   previous[index]?.weight ??
-                  (activity ? 0 : (entry.plan.suggestedWeight ?? null)),
+                  (activity ? 0 : (entry.plan.targetWeights?.[index] ?? entry.plan.suggestedWeight ?? null)),
                 reps:
                   previous[index]?.reps ??
                   (activity ? Math.max(1, entry.plan.minReps) : null),
