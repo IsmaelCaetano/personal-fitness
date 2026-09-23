@@ -1,0 +1,12 @@
+{
+  "name": "Personal Fitness",
+  "short_name": "Fitness",
+  "description": "Treinos, cargas e histórico no seu ritmo.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111211",
+  "theme_color": "#b9ef6c",
+  "icons": [
+    {"src":"/favicon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}
+  ]
+}

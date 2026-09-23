@@ -1,0 +1,13 @@
+const CACHE='personal-fitness-shell-v2';
+const CORE=['/','/favicon.svg','/manifest.webmanifest'];
+const MEDIA_SOURCE='https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises';
+const MEDIA_IDS=['Barbell_Bench_Press_-_Medium_Grip','Incline_Dumbbell_Press','Butterfly','Cable_Crossover','Wide-Grip_Lat_Pulldown','Seated_Cable_Rows','One-Arm_Dumbbell_Row','Leverage_High_Row','Dumbbell_Shoulder_Press','Side_Lateral_Raise','Reverse_Machine_Flyes','Barbell_Curl','Alternate_Incline_Dumbbell_Curl','Hammer_Curls','Triceps_Pushdown','Standing_Dumbbell_Triceps_Extension','Lying_Triceps_Press','Barbell_Squat','Leg_Press','Leg_Extensions','Lying_Leg_Curls','Seated_Leg_Curl','Stiff-Legged_Barbell_Deadlift','Stiff-Legged_Dumbbell_Deadlift','Barbell_Hip_Thrust','Seated_Calf_Raise','Standing_Calf_Raises','Cable_Crunch','Crunches','Palms-Up_Dumbbell_Wrist_Curl_Over_A_Bench','Smith_Machine_Squat'];
+const MEDIA=MEDIA_IDS.flatMap(id=>[`${MEDIA_SOURCE}/${id}/0.jpg`,`${MEDIA_SOURCE}/${id}/1.jpg`]);
+self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(async cache=>{await cache.addAll(CORE);await Promise.allSettled(MEDIA.map(url=>cache.add(url)));}));self.skipWaiting();});
+self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))));self.clients.claim();});
+self.addEventListener('fetch',event=>{
+ const request=event.request;if(request.method!=='GET')return;const url=new URL(request.url);const isExerciseMedia=url.origin==='https://raw.githubusercontent.com'&&url.pathname.startsWith('/yuhonas/free-exercise-db/');if(url.origin!==self.location.origin&&!isExerciseMedia||url.pathname.startsWith('/api/')||url.pathname.startsWith('/signin'))return;
+ if(isExerciseMedia){event.respondWith(caches.match(request).then(cached=>cached||fetch(request).then(response=>{if(response.ok||response.type==='opaque')caches.open(CACHE).then(cache=>cache.put(request,response.clone()));return response;})));return;}
+ if(request.mode==='navigate'){event.respondWith(fetch(request).then(response=>{const copy=response.clone();caches.open(CACHE).then(cache=>cache.put('/',copy));return response;}).catch(()=>caches.match('/')));return;}
+ event.respondWith(caches.match(request).then(cached=>cached||fetch(request).then(response=>{if(response.ok)caches.open(CACHE).then(cache=>cache.put(request,response.clone()));return response;})));
+});
