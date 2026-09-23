@@ -1,4 +1,4 @@
-const endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent";
+const endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent";
 
 type GeminiPart = { text: string } | { inlineData: { mimeType: string; data: string } };
 
@@ -11,7 +11,6 @@ export async function askGemini(parts: GeminiPart[], responseSchema?: Record<str
     body: JSON.stringify({
       contents: [{ role: "user", parts }],
       generationConfig: {
-        temperature: 0.35,
         maxOutputTokens: 16384,
         ...(responseSchema ? { responseMimeType: "application/json", responseSchema } : {}),
       },
