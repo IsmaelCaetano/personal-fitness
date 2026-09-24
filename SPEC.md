@@ -132,6 +132,11 @@ Falhas de autenticação ou RLS podem expor dados entre usuários e são crític
 - Rotina ou programa inteiro podem ser exportados em A4 com cabeçalho claro, atleta, objetivo, data, meta semanal, exercícios, séries, alvo, carga, descanso, esforço e observações. Histórico real fornece última carga quando houver; IDs técnicos não entram no modelo exportado.
 - Transformação pura `FitnessData → WorkoutPdfModel` é testada e a renderização com jsPDF é carregada no clique. jsPDF é biblioteca mantida para PDF no navegador e evita serviço externo e envio de dados do treino. Script transitivo de `core-js` não é autorizado no install.
 
+## Assistente de séries — Lote 5
+
+- Regras puras usam alvo de repetições, resultado e esforço (RIR/RPE) para orientar progressão conservadora após cada série concluída. Séries de aquecimento, etapas de duração e registros pendentes não geram dica de carga. Sem histórico, a mensagem estabelece uma linha de base.
+- Camada explicativa por Gemini é opcional e não é chamada por série; qualquer integração posterior precisa de limite de requisições persistido e fallback para estas regras.
+
 
 ## Quota de IA — Lote 2
 

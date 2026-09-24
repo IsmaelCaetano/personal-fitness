@@ -26,6 +26,7 @@ import { newId } from "@/lib/fitness/model";
 import {
   calculateWorkoutDuration,
   calculateWorkoutVolume,
+  coachSetFeedback,
   clock,
   completedSets,
   currentTimestamp,
@@ -333,6 +334,9 @@ export function Workout({
                       <Check size={20} />
                     </button>
                   </div>
+                  {s.status === 'completed' && coachSetFeedback({ plan: e.plan, set: s, recent: prior, objective: data.profile.goals[0] }) && (
+                    <p className="progression-note">{coachSetFeedback({ plan: e.plan, set: s, recent: prior, objective: data.profile.goals[0] })}</p>
+                  )}
                   <details className="set-options">
                     <summary>
                       Detalhes da série{" "}
