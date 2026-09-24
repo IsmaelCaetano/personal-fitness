@@ -1,4 +1,4 @@
-import type { Exercise } from "./model";
+import type { Exercise, Plan } from "./model";
 
 const normalize = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
@@ -64,4 +64,12 @@ export function alternativesFor(sourceId: string, saved: string[] | undefined, e
   const allowed = new Set(ranked.map(({ exercise }) => exercise.id));
   const selected = [...new Set(saved ?? [])].filter((id) => allowed.has(id));
   return selected.length ? selected : ranked.slice(0, 3).map(({ exercise }) => exercise.id);
+}
+
+export function alternativesForPlan(plan: Plan, exercises: Exercise[], options: AlternativeOptions = {}) {
+  return alternativesFor(plan.exerciseId, plan.alternativeExerciseIds, exercises, {
+    ...options,
+    blocked: plan.substitutionRule === 'blocked',
+    approvedIds: plan.substitutionRule === 'approved' ? (plan.alternativeExerciseIds ?? []) : options.approvedIds,
+  });
 }

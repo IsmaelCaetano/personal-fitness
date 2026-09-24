@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { library } from "../lib/fitness/seed";
-import { alternativesFor, rankExerciseAlternatives, suggestAlternativeExerciseIds } from "../lib/fitness/recommendations";
+import { alternativesFor, alternativesForPlan, rankExerciseAlternatives, suggestAlternativeExerciseIds } from "../lib/fitness/recommendations";
 
 const id = (name: string) => {
   const exercise = library.find((item) => item.name === name);
@@ -48,6 +48,13 @@ test("trainer approved list and block override automatic candidates", () => {
   assert.deepEqual(suggestAlternativeExerciseIds(source, library, 3, { approvedIds: [id("Elevação lateral na polia")] }), [id("Elevação lateral na polia")]);
   assert.deepEqual(suggestAlternativeExerciseIds(source, library, 3, { blocked: true }), []);
   assert.deepEqual(suggestAlternativeExerciseIds(source, library, 3, { excludedIds: [id("Elevação lateral na polia")] }).includes(id("Elevação lateral na polia")), false);
+});
+test('trainer restrictions apply to saved plans even when older suggestions exist', () => {
+  const source = id('Elevação lateral');
+  const approved = id('Elevação lateral na polia');
+  const plan = { id: 'plan', exerciseId: source, sets: 2, minReps: 8, maxReps: 12, rest: 90, notes: '', alternativeExerciseIds: [approved, id('Desenvolvimento com halteres')] };
+  assert.deepEqual(alternativesForPlan({ ...plan, substitutionRule: 'approved' }, library), [approved]);
+  assert.deepEqual(alternativesForPlan({ ...plan, substitutionRule: 'blocked' }, library), []);
 });
 test("metadata on new exercise determines compatibility", () => {
   const custom = { ...library[0], id: "custom", name: "Meu movimento", movementPattern: "horizontal_push" as const, targetRegion: "chest_mid", mechanics: "compound" as const };

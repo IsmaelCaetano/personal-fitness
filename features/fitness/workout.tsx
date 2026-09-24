@@ -40,7 +40,8 @@ import {
 import { Choice, Confirm, Modal } from "./shared";
 import { ExerciseMedia } from "./exercise-media";
 import { library } from "@/lib/fitness/seed";
-import { alternativesFor } from "@/lib/fitness/recommendations";
+import { alternativesForPlan } from "@/lib/fitness/recommendations";
+import { AssignedFeedback } from './assigned-feedback';
 export function Workout({
   session,
   data,
@@ -48,6 +49,7 @@ export function Workout({
   onFinish,
   onBack,
   onProfileChange,
+  trainerAssignment,
 }: {
   session: Session;
   data: FitnessData;
@@ -55,6 +57,7 @@ export function Workout({
   onFinish: (s: Session) => void;
   onBack: () => void;
   onProfileChange: (profile: Profile) => void;
+  trainerAssignment?: { trainerId: string; assignmentId: string };
 }) {
   const [now, setNow] = useState(currentTimestamp);
   const [finish, setFinish] = useState(false);
@@ -217,6 +220,7 @@ export function Workout({
                 </p>
               )}
               <ExerciseMedia exercise={e.exercise} compact />
+              {trainerAssignment && <AssignedFeedback trainerId={trainerAssignment.trainerId} assignmentId={trainerAssignment.assignmentId} sessionId={session.id} exerciseId={e.exercise.id} />}
               {suggestion === "READY_TO_PROGRESS" && (
                 <div className="progression-note">
                   ↗ Topo da faixa atingido em todas as séries anteriores.
@@ -642,9 +646,8 @@ function WorkoutSubstitutions({
   const entries = session.exercises
     .map((entry) => ({
       entry,
-      alternativeIds: alternativesFor(
-        entry.plan.exerciseId,
-        entry.plan.alternativeExerciseIds,
+      alternativeIds: alternativesForPlan(
+        entry.plan,
         exercises,
         { excludedIds: data.profile.rejectedAlternatives?.filter((item) => item.sourceId === entry.plan.exerciseId).map((item) => item.candidateId) },
       ),
