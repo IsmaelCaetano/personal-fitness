@@ -10,6 +10,7 @@ Cada tarefa deve caber em um commit revisável e reversível.
 - [ ] **Lote 4 — verificação real** — Inspecionar visualmente PDFs longos e texto com acentos no navegador antes de publicar.
 - [ ] **Lote 5 — IA opcional** — Camada explicativa Gemini não foi adicionada; motor determinístico funciona sem ela. Definir limite persistente por usuário antes de habilitar chamadas durante treino.
 - [ ] **Lote 6 — banco real** — Aplicar `202609240002_api_rate_limits.sql` e testar RPC autenticada, limites simultâneos, RLS e integração de OCR/IA.
+- [ ] **Lote 7 — integração** — Aplicar `202609240003_trainer_foundation.sql`, configurar service role privada, testar convites de conta nova/existente e RLS com duas contas e personal.
 
 - [ ] **T6** — Configurar `GEMINI_API_KEY` na Vercel e validar geração real · atende `R7`, `R8` · verifica-se: OCR e plano funcionam em produção.
 - [ ] **T9** — Validar em produção a recuperação de gravações pendentes, conflitos reais e salvamento de plano gerado · atende `R13`, `R14`.
@@ -26,6 +27,7 @@ Cada tarefa deve caber em um commit revisável e reversível.
 - [x] **Lote 4 — código local** — Exportação A4 para rotina e programa, view model puro e teste de histórico/privacidade; verificação visual pendente.
 - [x] **Lote 5 — motor local** — Dica determinística após série, com testes de faixa, RIR, RPE, histórico e exclusões de aquecimento/cardio. Sem camada Gemini opcional.
 - [x] **Lote 6 — auditoria local** — Revisadas rotas existentes, callback interno, logs, limites de IA e OCR; threat model e riscos em `SECURITY.md`. Integração de banco real pendente.
+- [x] **Lote 7 — fundação local** — Tabelas relacionais, grants/RLS, convite Auth Admin, registro trainer e aceitação por e-mail. Sem banco real/teste de e-mail nesta execução.
 
 - [x] **Lote 2 — código local** — Duas gerações de programa/mês UTC, reserva/liberação atômica, retry idempotente, contador e renovação. Testes locais cobrem limite, concorrência, falha, retry e virada do mês. Integração de banco real pendente.
 

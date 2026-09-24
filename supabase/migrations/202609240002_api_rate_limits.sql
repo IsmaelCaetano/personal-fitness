@@ -22,6 +22,8 @@ begin
   case p_operation
     when 'ocr' then v_limit := 12; v_seconds := 3600;
     when 'workout_generation' then v_limit := 6; v_seconds := 3600;
+    when 'trainer_invite' then v_limit := 10; v_seconds := 86400;
+    when 'student_feedback' then v_limit := 10; v_seconds := 3600;
     else raise exception 'INVALID_OPERATION';
   end case;
   v_bucket := to_timestamp(floor(extract(epoch from now()) / v_seconds) * v_seconds);

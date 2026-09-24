@@ -29,6 +29,7 @@ MVP multiusuário para planejar musculação, corrida e treino híbrido, registr
 | IA e OCR | `app/api/ai/`, `lib/fitness/ai.ts`, `lib/fitness/gemini.ts` |
 | Substituições equivalentes | `lib/fitness/recommendations.ts`, `features/fitness/workout.tsx` |
 | PDF de rotina e programa | `lib/fitness/pdf.ts`, `features/fitness/routine-preview.tsx` |
+| Personal e alunos | `app/api/trainer/`, `supabase/migrations/202609240003_trainer_foundation.sql` |
 | Histórico e progresso | `features/fitness/history.tsx`, `features/fitness/progress.tsx` |
 
 ## Configuração local

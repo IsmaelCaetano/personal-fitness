@@ -143,6 +143,13 @@ Falhas de autenticação ou RLS podem expor dados entre usuários e são crític
 - `api_rate_limits` contém janelas por conta e operação. A RPC usa `auth.uid()` internamente e operações/tetos fixos; OCR e gerador retornam 429 ao atingir teto, 503 se migração ausente.
 - `SECURITY.md` descreve ameaças, controles, migrações e verificações pendentes. RLS e funções SQL ainda precisam de testes contra Postgres real antes de deploy.
 
+## Fundação trainer/aluno — Lote 7
+
+- Relações, convites, perfis de conta, atribuições, feedback, notificações e pagamentos ficam em tabelas relacionais com RLS. Dados individuais atuais permanecem em `fitness_resources`, sem migração destrutiva. Trainer ativo lê perfil/histórico necessário do aluno; aluno executa sessões na própria conta.
+- Seleção explícita do modo personal chama RPC com a própria identidade autenticada. `account_type` não pode ser atualizado livremente por um PATCH da conta.
+- Convite exige personal autenticado, rate limit e service role no servidor para `inviteUserByEmail`. Aceitação exige usuário Auth com o mesmo e-mail, convite pendente e prazo de sete dias; associação é feita em RPC, sem `student_id` fornecido pelo navegador. Alunos antigos mantêm dados mesmo depois de encerrar vínculo.
+- Políticas vetam escrita estrutural de prescrições pelo aluno e leitura de outro aluno. Ex-aluno deixa de aparecer no acesso ativo. É necessário validar RLS com contas reais após migrar.
+
 
 ## Quota de IA — Lote 2
 
