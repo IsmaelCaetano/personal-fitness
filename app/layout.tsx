@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./fitness.css";
+import "./fitness-forms.css";
 
 export const metadata: Metadata = {
   title: "Personal Fitness",

@@ -59,6 +59,10 @@ Pessoas que treinam musculação, corrida ou atividades híbridas precisam organ
 | R18 | A fila é recuperada antes de qualquer leitura de rede e abas não sobrescrevem os rascunhos umas das outras. | Abertura offline, reconexão, duas abas e recuperação de diário abandonado são cobertas por testes. |
 | R19 | A versão de um ID nunca reinicia depois de excluir/restaurar; inicializar a conta não sobrescreve perfil nem oculta recursos existentes. | Testes de exclusão/restauração rejeitam escrita de dispositivo antigo; criação concorrente do perfil usa `ON CONFLICT DO NOTHING`. |
 | R20 | Cada conta individual tem duas gerações de programa por IA por mês calendário UTC. Importações, OCR, edição e treino manual não consomem quota. | Reserva e conclusão transacionais por usuário e ID de requisição; falha libera reserva; retry retorna mesmo plano válido. |
+| R21 | Cadastro permite escolher modo individual ou personal; a opção personal ativa o perfil profissional após autenticação verificada, sem alterar contas existentes. | Após confirmar o e-mail, o personal entra no portal sem precisar ativar modo manualmente; alterações em metadata não dão acesso sem a RPC autenticada. |
+| R22 | Personal informa nome e e-mail para pré-cadastrar o aluno; convite ao novo usuário exige definir senha antes de aceitar o vínculo e abrir o painel. | Link leva à criação de senha, e a associação só é aceita pelo endereço autenticado; contas já existentes conservam login e aceitam convite no app. |
+| R23 | Perfil e portal personal exibem rótulos, campos e ações separados e responsivos. | Conferência visual em telas desktop e celular, incluindo senha e convite. |
+| R24 | Mídia nova só é incorporada com direito de uso e atribuição verificáveis; indisponibilidade não impede registrar treinos. | Fontes e licença documentadas e fallback local sem quebrar UI. |
 
 ## Ambiente
 

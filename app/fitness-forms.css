@@ -1,0 +1,24 @@
+/* Profile and trainer forms share spacing without changing other cards. */
+.profile-layout>.card{min-width:0;align-self:start;display:flex;flex-direction:column;gap:16px}
+.profile-layout>.card>h2{margin-bottom:3px}
+.profile-layout>.card>h3{margin:8px 0 0}
+.profile-layout>.card>p{overflow-wrap:anywhere}
+.profile-layout>.card>label,.trainer-portal .card>label,.trainer-invite-fields label{display:flex;flex-direction:column;gap:8px;font-size:.875rem;color:var(--muted-foreground)}
+.profile-layout .goal-options{gap:12px}
+.profile-layout .goal-options label{min-height:34px}
+.profile-layout .preferences-card>button,.profile-layout .preferences-card>a{align-self:flex-start}
+.profile-layout .preferences-card>label input{width:100%}
+.profile-layout .preferences-card>h3{margin-top:12px}
+.trainer-portal>.card{margin:20px 0;padding:24px;min-width:0}
+.trainer-portal>.card>h2,.trainer-portal>.card>h3{margin-bottom:12px}
+.trainer-portal>.card>p{margin-bottom:16px}
+.trainer-portal .card>button{margin-top:12px}
+.trainer-invite-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:18px}
+.trainer-invite-fields input{width:100%;min-width:0}
+.trainer-invite-list{margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.trainer-invite-list p{margin-top:8px;overflow-wrap:anywhere}
+.trainer-portal .routine-management{flex-wrap:wrap;align-items:center}
+.trainer-portal .routine-management p{max-width:none}
+.access-fields select{width:100%;min-height:46px;border:1px solid var(--border);border-radius:9px;background:var(--secondary);color:var(--foreground);padding:0 13px}
+.access-fields select:focus-visible{outline:2px solid var(--primary)}
+@media(max-width:767px){.profile-layout>.card{padding:20px}.trainer-portal{padding:20px 16px 100px!important}.trainer-portal>.card{padding:18px;margin:16px 0}.trainer-invite-fields{grid-template-columns:1fr}}
