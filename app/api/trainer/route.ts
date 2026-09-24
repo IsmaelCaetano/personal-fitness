@@ -2,11 +2,12 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { profileSchema } from '@/lib/fitness/model';
+import { studentIntakeSchema } from '@/lib/fitness/student-intake';
 
 export const dynamic = 'force-dynamic';
 const bodySchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('register'), displayName: z.string().trim().min(1).max(80) }),
-  z.object({ action: z.literal('invite'), email: z.string().trim().email().max(255), studentName: z.string().trim().min(1).max(80).optional() }),
+  z.object({ action: z.literal('invite'), email: z.string().trim().email().max(255), studentName: z.string().trim().min(1).max(80), intake: studentIntakeSchema }),
   z.object({ action: z.literal('accept'), inviteId: z.string().uuid() }),
 ]);
 const result = (data: unknown, status = 200) => Response.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
   if (origin && origin !== new URL(request.url).origin) return result({ error: 'Origem inválida.' }, 403);
   try {
     const raw = await request.text();
-    if (raw.length > 1000) return result({ error: 'Dados muito grandes.' }, 413);
+    if (raw.length > 4500) return result({ error: 'Dados muito grandes.' }, 413);
     const body = bodySchema.safeParse(JSON.parse(raw));
     if (!body.success) return result({ error: 'Confira os dados.' }, 400);
     if (body.data.action === 'register') {
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
     const appOrigin = process.env.APP_ORIGIN || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : process.env.VERCEL ? '' : new URL(request.url).origin);
     if (!appOrigin || !/^https:\/\//.test(appOrigin) && !/^http:\/\/localhost(?::\d+)?$/.test(appOrigin)) return result({ error: 'Endereço de convites não configurado.' }, 503);
     const admin = createAdminClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
-    const { data: invite, error: saveError } = await admin.from('trainer_invites').insert({ trainer_id: user.id, email: body.data.email.toLowerCase(), student_name: body.data.studentName ?? null, expires_at: new Date(Date.now() + 7 * 86400000).toISOString() }).select('id').single();
+    const { data: invite, error: saveError } = await admin.from('trainer_invites').insert({ trainer_id: user.id, email: body.data.email.toLowerCase(), student_name: body.data.studentName, intake: body.data.intake, expires_at: new Date(Date.now() + 7 * 86400000).toISOString() }).select('id').single();
     if (saveError || !invite) return result({ error: 'Não foi possível preparar o convite.' }, 503);
     const redirectTo = new URL(`/reset-password?invite=${encodeURIComponent(invite.id)}`, appOrigin).toString();
     const { error: emailError } = await admin.auth.admin.inviteUserByEmail(body.data.email.toLowerCase(), { redirectTo, data: { name: body.data.studentName ?? '', invited_student: true } });
