@@ -18,7 +18,7 @@ Cada tarefa deve caber em um commit revisável e reversível.
 
 - [ ] **T6** — Configurar `GEMINI_API_KEY` na Vercel e validar geração real · atende `R7`, `R8` · verifica-se: OCR e plano funcionam em produção.
 - [ ] **T9** — Validar em produção a recuperação de gravações pendentes, conflitos reais e salvamento de plano gerado · atende `R13`, `R14`.
-- [ ] **Publicação** — GitHub recusa escrita do conector (`403 Resource not accessible by integration`), terminal não tem credenciais de push e Vercel ainda precisa da variável privada `SUPABASE_SERVICE_ROLE_KEY`. Instalar/autorizar o GitHub App na conta `IsmaelCaetano` para o repositório e validar o deploy antes de marcar como publicado.
+- [ ] **Publicação em produção** — GitHub App autorizado na conta `IsmaelCaetano`; 14 commits enviados ao branch `fix/batch-1-sync` e PR draft #4 criado. Preview Vercel está Ready e login público carregou. Antes de integrar na `main`, adicionar `SUPABASE_SERVICE_ROLE_KEY` privada à Vercel e validar quotas/convites e permissões com contas distintas. A tela de login na prévia não valida esses fluxos.
 
 ## Anotado durante a implementação
 
