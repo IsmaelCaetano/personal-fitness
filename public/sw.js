@@ -1,5 +1,5 @@
-const CACHE='personal-fitness-shell-v3';
-const CORE=['/','/favicon.svg','/manifest.webmanifest'];
+const CACHE='personal-fitness-shell-v4';
+const CORE=['/favicon.svg','/manifest.webmanifest'];
 const MEDIA_SOURCE='https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises';
 const MEDIA_IDS=['Barbell_Bench_Press_-_Medium_Grip','Incline_Dumbbell_Press','Butterfly','Cable_Crossover','Wide-Grip_Lat_Pulldown','Seated_Cable_Rows','One-Arm_Dumbbell_Row','Leverage_High_Row','Dumbbell_Shoulder_Press','Side_Lateral_Raise','Reverse_Machine_Flyes','Barbell_Curl','Alternate_Incline_Dumbbell_Curl','Hammer_Curls','Triceps_Pushdown','Standing_Dumbbell_Triceps_Extension','Lying_Triceps_Press','Barbell_Squat','Leg_Press','Leg_Extensions','Lying_Leg_Curls','Seated_Leg_Curl','Stiff-Legged_Barbell_Deadlift','Stiff-Legged_Dumbbell_Deadlift','Barbell_Hip_Thrust','Seated_Calf_Raise','Standing_Calf_Raises','Cable_Crunch','Crunches','Palms-Up_Dumbbell_Wrist_Curl_Over_A_Bench','Smith_Machine_Squat',
  'Bodyweight_Squat','Pushups','Dumbbell_Lunges','Plank','Leverage_Incline_Chest_Press','Leverage_Shoulder_Press','Low_Cable_Crossover','Thigh_Abductor','Leverage_Chest_Press','Cable_Seated_Lateral_Raise','Cable_Rear_Delt_Fly','Reverse_Flyes','Barbell_Shoulder_Press','Dumbbell_One-Arm_Shoulder_Press','Dumbbell_Bench_Press','Standing_Biceps_Cable_Curl'];
@@ -9,6 +9,8 @@ self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys
 self.addEventListener('fetch',event=>{
  const request=event.request;if(request.method!=='GET')return;const url=new URL(request.url);const isExerciseMedia=url.origin==='https://raw.githubusercontent.com'&&url.pathname.startsWith('/yuhonas/free-exercise-db/');if(url.origin!==self.location.origin&&!isExerciseMedia||url.pathname.startsWith('/api/')||url.pathname.startsWith('/signin'))return;
  if(isExerciseMedia){event.respondWith(caches.match(request).then(cached=>cached||fetch(request).then(response=>{if(response.ok||response.type==='opaque')caches.open(CACHE).then(cache=>cache.put(request,response.clone()));return response;})));return;}
- if(request.mode==='navigate'){event.respondWith(fetch(request).then(response=>{const copy=response.clone();caches.open(CACHE).then(cache=>cache.put('/',copy));return response;}).catch(()=>caches.match('/')));return;}
+ // Navigation responses may include serialized account data. Never retain them
+ // across sign-out or account changes on a shared device.
+ if(request.mode==='navigate'){event.respondWith(fetch(request).catch(()=>new Response('<!doctype html><html lang="pt-br"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sem conexão · Personal Fitness</title><body style="font:16px system-ui;background:#171917;color:#f7f7f2;max-width:40rem;margin:12vh auto;padding:1.5rem"><h1>Você está sem conexão</h1><p>Conecte-se novamente para abrir o aplicativo. Se já estiver treinando em uma aba aberta, seus registros continuarão nela e serão sincronizados ao voltar a internet.</p></body></html>',{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'}})));return;}
  event.respondWith(caches.match(request).then(cached=>cached||fetch(request).then(response=>{if(response.ok)caches.open(CACHE).then(cache=>cache.put(request,response.clone()));return response;})));
 });

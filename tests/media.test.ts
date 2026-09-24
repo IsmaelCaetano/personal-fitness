@@ -12,4 +12,6 @@ test('every built-in exercise demonstration can be cached offline', () => {
     assert(cached.has(source), `Demonstration ${source} for ${id} is not pre-cached`);
   }
   assert(Object.keys(exerciseDemoIds).length >= 45);
+  assert.doesNotMatch(worker, /const CORE=\[[^\]]*['"]\/['"]/);
+  assert.doesNotMatch(worker, /cache\.put\(['"]\/['"]/);
 });
