@@ -232,7 +232,7 @@ alter table public.notifications enable row level security;
 alter table public.payment_records enable row level security;
 
 create policy account_select on public.account_profiles for select to authenticated using (user_id=(select auth.uid()) or public.is_active_trainer((select auth.uid()),user_id));
-create policy account_insert on public.account_profiles for insert to authenticated with check (user_id=(select auth.uid()) and account_type='individual');
+-- Profile creation happens once via the Auth INSERT trigger below.
 create policy account_update on public.account_profiles for update to authenticated using (user_id=(select auth.uid())) with check (user_id=(select auth.uid()));
 revoke update on public.account_profiles from authenticated;
 grant update(display_name) on public.account_profiles to authenticated;
@@ -261,19 +261,28 @@ create policy payments_update on public.payment_records for update to authentica
 revoke update on public.payment_records from authenticated;
 grant update(reference_month,due_date,amount,status,paid_at,notes,updated_at) on public.payment_records to authenticated;
 
--- A clear opt-in switches the current authenticated account into trainer mode.
-create or replace function public.register_trainer(p_display_name text)
-returns boolean language plpgsql security definer set search_path = '' as $$
-declare v_user uuid := auth.uid();
+create or replace function public.create_account_for_new_auth_user()
+returns trigger language plpgsql security definer set search_path = '' as $$
+declare
+ v_name text := left(trim(coalesce(new.raw_user_meta_data->>'name','')),80);
+ v_type text := case
+   when new.raw_user_meta_data->>'signup_intent'='trainer'
+    and new.raw_user_meta_data->>'invited_student' is distinct from 'true'
+    then 'trainer' else 'individual' end;
 begin
- if v_user is null or length(trim(p_display_name)) not between 1 and 80 then return false; end if;
- insert into public.account_profiles(user_id,account_type,display_name) values(v_user,'trainer',trim(p_display_name))
- on conflict(user_id) do update set account_type='trainer',display_name=excluded.display_name,updated_at=now();
- insert into public.trainer_profiles(user_id) values(v_user) on conflict do nothing;
- return true;
+ insert into public.account_profiles(user_id,account_type,display_name)
+  values(new.id,v_type,v_name) on conflict(user_id) do nothing;
+ if v_type='trainer' then
+  insert into public.trainer_profiles(user_id) values(new.id) on conflict do nothing;
+ end if;
+ return new;
 end; $$;
-revoke all on function public.register_trainer(text) from public,anon;
-grant execute on function public.register_trainer(text) to authenticated;
+create trigger on_auth_user_created_account after insert on auth.users
+ for each row execute function public.create_account_for_new_auth_user();
+revoke insert on public.account_profiles from authenticated;
+revoke insert on public.trainer_profiles from authenticated;
+revoke insert on public.account_profiles, public.trainer_profiles from public, anon;
+revoke all on function public.create_account_for_new_auth_user() from public, anon, authenticated;
 
 create or replace function public.accept_trainer_invite(p_invite_id uuid)
 returns boolean language plpgsql security definer set search_path = '' as $$
