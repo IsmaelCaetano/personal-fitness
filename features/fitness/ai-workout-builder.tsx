@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BrainCircuit, Check, Clock3, Dumbbell, RefreshCw, ShieldAlert, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Choice, Modal } from "./shared";
@@ -22,18 +22,24 @@ export function AIWorkoutBuilder({ data, exercises, onClose, onSave }: { data: F
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [quota,setQuota]=useState<{used:number;limit:number;renewsAt:string}|null>(null);
+  const requestId=useRef<string|null>(null);
+  useEffect(()=>{void fetch('/api/ai/workout').then(async response=>{if(response.ok)setQuota(await response.json());}).catch(()=>{});},[]);
   const recentSessions = useMemo(() => data.sessions.filter((session) => session.status === "completed" && !session.isDemo).length, [data.sessions]);
 
   async function generate() {
     setBusy(true); setError(""); setProgram(null); setRoutines([]);
     try {
-      const response = await fetch("/api/ai/workout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ brief }) });
-      const payload = await response.json() as GeneratedProgram & { error?: string };
-      if (!response.ok) throw new Error(payload.error ?? "Não foi possível gerar o treino.");
+      requestId.current ??= crypto.randomUUID();
+      const response = await fetch("/api/ai/workout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ brief,requestId:requestId.current }) });
+      const payload = await response.json() as GeneratedProgram & { error?: string;used?:number;limit?:number;renewsAt?:string };
+      if (!response.ok){if(payload.used!==undefined&&payload.limit&&payload.renewsAt)setQuota({used:payload.used,limit:payload.limit,renewsAt:payload.renewsAt});if([409,422,429].includes(response.status))requestId.current=null;throw new Error(payload.error ?? "Não foi possível gerar o treino.");}
       const parsed = generatedProgramSchema.parse(payload);
       const issue = validateGeneratedProgram(parsed, brief, exercises);
       if (issue) throw new Error(issue);
+      requestId.current=null;
       setProgram(parsed); setRoutines(compileGeneratedProgram(parsed, exercises));
+      void fetch('/api/ai/workout').then(async response=>{if(response.ok)setQuota(await response.json());}).catch(()=>{});
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível gerar o treino.");
     } finally { setBusy(false); }
@@ -42,6 +48,8 @@ export function AIWorkoutBuilder({ data, exercises, onClose, onSave }: { data: F
   return <Modal open wide title={program ? program.title : "Criar treino com IA"} description={program ? "Confira a divisão, o volume e a progressão antes de salvar." : "A IA cruza seu objetivo, frequência, tempo, equipamentos, preferências e histórico recente."} onClose={onClose}>
     {!program ? <div className="ai-builder">
       <div className="ai-builder-intro"><BrainCircuit size={23}/><div><strong>Planejamento individual, não uma ficha pronta</strong><p>Quanto mais contexto você informar, mais específico será o resultado.</p></div></div>
+      {quota&&<p role="status">Gerações por IA neste mês: {quota.used} de {quota.limit}. Renova em {new Date(`${quota.renewsAt}T12:00:00Z`).toLocaleDateString('pt-BR',{timeZone:'UTC'})}.</p>}
+      {quota&&quota.used>=quota.limit&&<p>Você utilizou suas gerações de treino por IA deste mês. Você ainda pode criar, editar e importar treinos normalmente.</p>}
       <div className="ai-form-grid">
         <label>Tipo de treino<Choice label="Tipo de treino" value={brief.style} onChange={(value) => setBrief({ ...brief, style: value as WorkoutBrief["style"] })} options={styles}/></label>
         <label>Dias por semana<Choice label="Dias por semana" value={String(brief.days)} onChange={(value) => setBrief({ ...brief, days: Number(value) })} options={[1,2,3,4,5,6,7].map((value) => ({ value: String(value), label: `${value} dia${value > 1 ? "s" : ""}` }))}/></label>
@@ -55,7 +63,7 @@ export function AIWorkoutBuilder({ data, exercises, onClose, onSave }: { data: F
       <label className="ai-wide-field">Preferências e contexto<textarea rows={3} value={brief.preferences} onChange={(event) => setBrief({ ...brief, preferences: event.target.value })} maxLength={1500} placeholder="Ex.: quero melhorar corrida de 5 km, gosto de máquinas, não quero treinos aos domingos..."/></label>
       <div className="ai-context-summary"><Sparkles size={17}/><span>Será considerado: {data.profile.goals.join(", ")} · {data.profile.height ?? "—"} cm · {data.profile.weight ?? "—"} kg · {recentSessions} treino(s) disponível(is) no histórico. Perfil e respostas são enviados ao provedor de IA para montar o plano.</span></div>
       {error && <p className="ai-error" role="alert">{error}</p>}
-      <button className="primary full ai-generate" disabled={busy} onClick={() => void generate()}>{busy ? <><RefreshCw className="spin" size={18}/>Analisando e montando...</> : <><BrainCircuit size={18}/>Gerar meu plano personalizado</>}</button>
+      <button className="primary full ai-generate" disabled={busy||Boolean(quota&&quota.used>=quota.limit)} onClick={() => void generate()}>{busy ? <><RefreshCw className="spin" size={18}/>Analisando e montando...</> : <><BrainCircuit size={18}/>Gerar meu plano personalizado</>}</button>
       <p className="small muted ai-safety"><ShieldAlert size={14}/>A IA auxilia o planejamento, mas não substitui avaliação médica ou acompanhamento profissional.</p>
     </div> : <div className="ai-result">
       <section className="ai-reasoning"><div><Sparkles size={18}/><strong>Por que este plano combina com você</strong></div><ul>{program.rationale.map((item) => <li key={item}>{item}</li>)}</ul></section>

@@ -58,6 +58,7 @@ Pessoas que treinam musculação, corrida ou atividades híbridas precisam organ
 | R17 | Edições durante um envio preservam tanto a intenção mais recente quanto a tentativa em trânsito. | Resposta perdida e retry confirmam a tentativa anterior sem descartar a edição posterior; versões divergentes de outro dispositivo continuam exigindo escolha. |
 | R18 | A fila é recuperada antes de qualquer leitura de rede e abas não sobrescrevem os rascunhos umas das outras. | Abertura offline, reconexão, duas abas e recuperação de diário abandonado são cobertas por testes. |
 | R19 | A versão de um ID nunca reinicia depois de excluir/restaurar; inicializar a conta não sobrescreve perfil nem oculta recursos existentes. | Testes de exclusão/restauração rejeitam escrita de dispositivo antigo; criação concorrente do perfil usa `ON CONFLICT DO NOTHING`. |
+| R20 | Cada conta individual tem duas gerações de programa por IA por mês calendário UTC. Importações, OCR, edição e treino manual não consomem quota. | Reserva e conclusão transacionais por usuário e ID de requisição; falha libera reserva; retry retorna mesmo plano válido. |
 
 ## Ambiente
 
@@ -96,6 +97,7 @@ Falhas de autenticação ou RLS podem expor dados entre usuários e são crític
 | D7 | Preservar uma tentativa imutável na fila até confirmar seu resultado. | A edição mais nova não é evidência do conteúdo de uma requisição anterior cuja resposta se perdeu. | Sobrescrever a tentativa ou incrementar versão sem confirmação. |
 | D8 | Cada aba possui um diário local exclusivo, protegido por Web Locks. | Evita sobrescrita de filas entre abas; abas encerradas liberam diários recuperáveis. | Um array compartilhado em localStorage com last-write-wins. |
 | D9 | Exclusão mantém marcador e versão crescente, com payload vazio. | Impede que excluir/restaurar reabra uma versão antiga para outro dispositivo. | Apagar a linha e recriar com `version=1`. |
+| D10 | Quota de IA usa tabelas relacionais e funções PostgreSQL acessíveis só ao servidor. | Requests paralelos e repetidos não ultrapassam o limite; falhas não consomem. | Contador em JSONB ou apenas na UI. |
 
 ## Protocolo de sincronização — Lote 1
 
@@ -117,6 +119,14 @@ Falhas de autenticação ou RLS podem expor dados entre usuários e são crític
 - A migração, o fluxo autenticado em produção e dois dispositivos reais precisam de validação antes de liberar este lote. Nenhuma credencial nem dados de produção são usados nos testes.
 
 ## Em aberto
+
+## Quota de IA — Lote 2
+
+- Somente a criação de programas pela IA conta: duas solicitações bem-sucedidas por mês calendário UTC para a conta individual gratuita. Edição, importação, OCR e treino manual continuam sem quota de geração.
+- `ai_usage` e `ai_generation_requests` são relacionais e independentes do JSONB de fitness. Reserva, conclusão e liberação passam por RPCs transacionais restritas a `service_role`, com trava por usuário/período. O ID da tentativa preserva resposta válida para retries sem cobrança duplicada.
+- Reservas pendentes abandonadas por mais de dois minutos são liberadas na consulta seguinte; resultado falho no Gemini/JSON/Zod/domínio libera a reserva. Falha ambígua ao confirmar não devolve plano ainda não confirmado como sucesso.
+- Migrar `202609240001_ai_usage.sql` após a migration do lote 1, antes de publicar a rota. `SUPABASE_SERVICE_ROLE_KEY` é privada na Vercel, sem prefixo público. O contador e a renovação são consultados em `/api/ai/workout` por GET autenticado.
+- Testes locais simulam concorrência e retry; ainda falta teste da função SQL e RLS em Postgres real.
 
 - [ ] Definir limites comerciais de gerações por usuário/dia antes de abrir o MVP publicamente.
 - [ ] Decidir se equipamentos e nível também serão persistidos no perfil, além do pedido de cada geração.

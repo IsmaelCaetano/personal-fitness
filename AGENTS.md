@@ -88,6 +88,7 @@ Antes de relatar que funciona, rode `pnpm check`. Se não puder, diga exatamente
 - **Excluir/recriar não pode reiniciar `version`.** Preservar marcador `deleted_at` com payload vazio; aplicar a migração versionada antes do deploy. Não remover marcadores em rollback nem ignorar `deletedIds` na reconciliação.
 - **Bootstrap não pode atualizar perfil existente.** Criar com `ignoreDuplicates: true` e reler todos os recursos; não usar o retorno do insert como snapshot completo.
 - **Resultado Gemini pode ser JSON válido e semanticamente ruim.** Sempre compilar contra a biblioteca e o `routineSchema`.
+- **Quota de IA fica em tabelas relacionais e RPCs de serviço.** Sem chave service role privada ou migração `202609240001_ai_usage.sql`, o gerador falha fechado; não devolver resposta de plano cuja confirmação no banco falhou.
 - **HEIC pode chegar com MIME vazio ou variável.** Validar extensão e normalizar antes da API.
 - **A chave Gemini foi adicionada à Production na Vercel em 2026-09-23.** O primeiro teste revelou que `gemini-2.5-flash-lite` não está disponível para novas contas; o endpoint foi atualizado para `gemini-3.5-flash-lite` no commit `ba96ed4`. Ainda falta validar geração e OCR autenticados após o deploy.
 
