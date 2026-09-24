@@ -63,6 +63,7 @@ Pessoas que treinam musculação, corrida ou atividades híbridas precisam organ
 | R22 | Personal informa nome e e-mail para pré-cadastrar o aluno; convite ao novo usuário exige definir senha antes de aceitar o vínculo e abrir o painel. | Link leva à criação de senha, e a associação só é aceita pelo endereço autenticado; contas já existentes conservam login e aceitam convite no app. |
 | R23 | Perfil e portal personal exibem rótulos, campos e ações separados e responsivos. | Conferência visual em telas desktop e celular, incluindo senha e convite. |
 | R24 | Mídia nova só é incorporada com direito de uso e atribuição verificáveis; indisponibilidade não impede registrar treinos. | Fontes e licença documentadas e fallback local sem quebrar UI. |
+| R25 | A navegação autenticada pode conter dados pessoais e não deve entrar em cache compartilhado pelo navegador. | Service Worker guarda somente recursos públicos e mídia; recarregar offline mostra tela genérica enquanto uma aba de treino já aberta continua a registrar localmente. |
 
 ## Ambiente
 
