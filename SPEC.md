@@ -127,6 +127,11 @@ Falhas de autenticação ou RLS podem expor dados entre usuários e são crític
 - Alternativas sugeridas pela IA são ignoradas. O servidor gera opções usando o filtro determinístico depois de validar o programa; nunca pede à IA que escolha livremente pelo músculo.
 - O motivo de recusa do usuário fica opcionalmente no próprio perfil e só afeta a relação entre exercício principal e alternativa, sem alterar a biblioteca global.
 
+## Exportação em PDF — Lote 4
+
+- Rotina ou programa inteiro podem ser exportados em A4 com cabeçalho claro, atleta, objetivo, data, meta semanal, exercícios, séries, alvo, carga, descanso, esforço e observações. Histórico real fornece última carga quando houver; IDs técnicos não entram no modelo exportado.
+- Transformação pura `FitnessData → WorkoutPdfModel` é testada e a renderização com jsPDF é carregada no clique. jsPDF é biblioteca mantida para PDF no navegador e evita serviço externo e envio de dados do treino. Script transitivo de `core-js` não é autorizado no install.
+
 
 ## Quota de IA — Lote 2
 

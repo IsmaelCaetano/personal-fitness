@@ -1,11 +1,13 @@
 "use client";
 import { useState } from "react";
-import { CalendarCheck, Clock3, Dumbbell, Play, Replace } from "lucide-react";
+import { CalendarCheck, Clock3, Download, Dumbbell, Play, Replace } from "lucide-react";
 import type { FitnessData, Routine } from "@/lib/fitness/model";
 import { library } from "@/lib/fitness/seed";
 import { Choice, Modal, EmptyState } from "./shared";
 import { ExerciseMedia } from "./exercise-media";
 import { alternativesFor } from "@/lib/fitness/recommendations";
+import { downloadWorkoutPdf, toWorkoutPdfModel } from "@/lib/fitness/pdf";
+import { toast } from "sonner";
 
 export function RoutinePreview({
   routine,
@@ -143,6 +145,9 @@ export function RoutinePreview({
         />
       )}
       <div className="preview-bottom-actions">
+        <button className="secondary" onClick={() => downloadWorkoutPdf(toWorkoutPdfModel(data, [routine])).catch(() => toast.error('Não foi possível criar o PDF.'))}>
+          <Download size={17} /> Baixar treino em PDF
+        </button>
         <button
           className="secondary"
           onClick={() => {

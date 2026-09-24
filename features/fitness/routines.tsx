@@ -8,6 +8,7 @@ import {
   Upload,
   Copy,
   Dumbbell,
+  Download,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -48,6 +49,7 @@ import { library } from "@/lib/fitness/seed";
 import { Choice, Modal, Confirm, EmptyState } from "./shared";
 import type { FitnessStore } from "./use-fitness";
 import { suggestAlternativeExerciseIds, rankExerciseAlternatives } from "@/lib/fitness/recommendations";
+import { downloadWorkoutPdf, toWorkoutPdfModel } from "@/lib/fitness/pdf";
 const muscles = [
   "Peito",
   "Costas",
@@ -120,6 +122,9 @@ export function Routines({
             <Upload size={18} />
             Organizar meu treino
           </button>
+          {data.routines.length > 0 && <button className="secondary" onClick={() => downloadWorkoutPdf(toWorkoutPdfModel(data, data.routines)).catch(() => toast.error('Não foi possível criar o PDF.'))}>
+            <Download size={17} /> Baixar programa em PDF
+          </button>}
           <button
             className="primary"
             onClick={() => setEditing(emptyRoutine())}
@@ -167,6 +172,9 @@ export function Routines({
                       <DropdownMenuItem onClick={() => onPreview(r)}>
                         <Eye />
                         Ver treino
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => downloadWorkoutPdf(toWorkoutPdfModel(data, [r])).catch(() => toast.error('Não foi possível criar o PDF.'))}>
+                        <Download /> Baixar treino em PDF
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => onChoose(r)}>
                         <CalendarCheck />
