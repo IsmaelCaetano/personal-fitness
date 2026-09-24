@@ -5,12 +5,12 @@ Cada tarefa deve caber em um commit revisável e reversível.
 ## Agora
 
 - [ ] **Lote 1 — integração** — Migração aplicada em produção em 2026-09-24; conferir duas abas, dois dispositivos, offline/reconexão e conflitos reais com navegador autenticado.
-- [ ] **Lote 2 — integração** — Migração aplicada em produção; configurar chave privada na Vercel e validar RPC/RLS e quota com Gemini real antes de publicar o código.
-- [ ] **Lote 3 — verificação real** — Validar trocas e recusas no navegador e persistência do perfil em ambiente autenticado antes de publicar.
-- [ ] **Lote 4 — verificação real** — Inspecionar visualmente PDFs longos e texto com acentos no navegador antes de publicar.
+- [ ] **Lote 2 — integração** — Migração e chave privada aplicadas em produção; validar RPC/RLS e quota com Gemini real usando conta autenticada.
+- [ ] **Lote 3 — verificação real** — Validar trocas e recusas no navegador e persistência do perfil com conta autenticada em produção.
+- [ ] **Lote 4 — verificação real** — Inspecionar visualmente PDFs longos e texto com acentos no navegador em produção.
 - [ ] **Lote 5 — IA opcional** — Camada explicativa Gemini não foi adicionada; motor determinístico funciona sem ela. Definir limite persistente por usuário antes de habilitar chamadas durante treino.
 - [ ] **Lote 6 — banco real** — Migração aplicada; testar RPC autenticada, limites simultâneos, RLS e integração de OCR/IA.
-- [ ] **Lote 7 — integração** — Migração aplicada; configurar service role privada, testar convites de conta nova/existente e RLS com duas contas e personal.
+- [ ] **Lote 7 — integração** — Migração e service role privada aplicadas; testar convites de conta nova/existente e RLS com duas contas e personal.
 - [ ] **Lote 8 — integração** — Testar dois usuários reais e versões concorrentes na prescrição, visualização/execução do aluno, responsividade da tela `/trainer` e fluxo de convite existente.
 - [ ] **Lote 9 — integração** — Testar triggers de notificação, marcação de leitura e feedback com RLS autenticada em Supabase real.
 - [ ] **Lote 10 — integração** — Migração aplicada; conferir index/trigger, pagamento com dois alunos e derivação de atraso em data real.
@@ -18,7 +18,7 @@ Cada tarefa deve caber em um commit revisável e reversível.
 
 - [ ] **T6** — Configurar `GEMINI_API_KEY` na Vercel e validar geração real · atende `R7`, `R8` · verifica-se: OCR e plano funcionam em produção.
 - [ ] **T9** — Validar em produção a recuperação de gravações pendentes, conflitos reais e salvamento de plano gerado · atende `R13`, `R14`.
-- [ ] **Publicação em produção** — GitHub App autorizado na conta `IsmaelCaetano`; 14 commits enviados ao branch `fix/batch-1-sync` e PR draft #4 criado. Preview Vercel está Ready e login público carregou. Antes de integrar na `main`, adicionar `SUPABASE_SERVICE_ROLE_KEY` privada à Vercel e validar quotas/convites e permissões com contas distintas. A tela de login na prévia não valida esses fluxos.
+- [x] **Publicação em produção, 2026-09-24** — PR #4 integrado à `main` como `be9262b`; 15 commits revisáveis preservados. `SUPABASE_SERVICE_ROLE_KEY` aparece como Secret nos ambientes Production e Preview da Vercel. Deploy `dpl_8gSneWaAKnTVEEGnRBzxA4AkD2VE` Ready; tela pública de acesso abriu em `personal-fitness-omega.vercel.app`. `pnpm check` passou com 95 testes, tipos, build e lint sem erros (6 avisos). Fluxos autenticados de quota, convites, acesso cruzado, notificações e salvamento ainda dependem de teste com contas reais; a tela de login não comprova esses fluxos.
 
 ## Anotado durante a implementação
 
