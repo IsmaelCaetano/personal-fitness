@@ -14,6 +14,7 @@ Dados de perfil e treino, históricos, cargas, senhas de autenticação e conte�
 - Substituições oferecidas pelo modelo são descartadas; resultados de IA passam por Zod, validação de domínio e revisão humana antes de persistir.
 - Relacionamentos de personal/aluno, prescrições, feedback e pagamentos usam tabelas relacionais com RLS; rotas conferem o vínculo ativo antes de consultar/alterar os dados. O aluno não recebe permissão de UPDATE em prescrições do personal. O identificador do aluno em requisições não concede acesso por si.
 - Convites são enviados exclusivamente pelo servidor com a chave service role; aceitação verifica a identidade Auth e o e-mail do destinatário em RPC. Permissão de alterar o tipo de conta fica em operação explícita do próprio usuário.
+- A ficha preenchida pelo personal fica no convite pendente com leitura limitada por RLS; a aceitação cria o perfil da conta verificada na mesma transação que ativa o vínculo. A função admite só campos de treino conhecidos e não altera o perfil já concluído de uma conta existente.
 - A geração da IA para aluno valida o vínculo, lê apenas os registros daquele aluno e vincula a chave idempotente ao aluno/pedido. Feedback e pagamento não são modificáveis pela IA.
 
 ## Riscos e verificações pendentes

@@ -55,3 +55,4 @@ Cada tarefa deve caber em um commit revisável e reversível.
 - [x] **T5** — Frequência semanal obrigatória de 1 a 7 dias no onboarding.
 - [x] **T7** — Lote completo integrado no PR #1 (`8bb63a1`); Vercel Production “Ready” e tela pública de acesso verificada.
 - [x] **T8** — Semana com dois treinos na segunda, futebol, cardio, metas por série e descanso interpretada e revisável (teste de contrato).
+- [x] **Ficha preenchida pelo personal — código e banco** — Pré-cadastro com perguntas de treino, convite vinculado à ficha, aceitação atômica criando perfil completo. Migração `202609240007` aplicada em produção e verificada (coluna e função); 98 testes e `pnpm check` passaram. Teste de convite com duas contas reais continua pendente.
