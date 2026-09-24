@@ -25,3 +25,25 @@ test('exclusão já confirmada no servidor não é reenviada', () => {
   const result = reconcilePending(initialData('user'), [{ ...change, remove: true, version: 3 }]);
   assert.deepEqual(result, { remaining: [], conflicts: [] });
 });
+
+test('resposta perdida com edição mais nova preserva a edição e confirma o envio anterior', () => {
+  const server = { ...initialData('user'), routines: [routine], versions: { [routine.id]: 1 } };
+  const latest = { ...change, entity: { ...routine, name: 'Edição durante envio' }, stamp: 2,
+    attempt: { ...change } };
+  const result = reconcilePending(server, [latest]);
+  assert.equal(result.conflicts.length, 0);
+  assert.equal(result.remaining[0]?.version, 1);
+  assert.equal((result.remaining[0]?.entity as Routine).name, 'Edição durante envio');
+});
+
+test('um envio idêntico que voltou a divergir em outro dispositivo continua em conflito', () => {
+  const server = { ...initialData('user'), routines: [routine], versions: { [routine.id]: 3 } };
+  const latest = { ...change, entity: { ...routine, name: 'Local' }, stamp: 2, attempt: { ...change } };
+  assert.equal(reconcilePending(server, [latest]).conflicts.length, 1);
+});
+
+test('GET antigo após timeout não descarta uma edição que reverteu ao conteúdo anterior', () => {
+  const server = { ...initialData('user'), routines: [routine], versions: { [routine.id]: 1 } };
+  const latest = { ...change, version: 1, stamp: 3, attempt: { ...change, version: 1, stamp: 2, entity: { ...routine, name: 'Pode ainda estar em trânsito' } } };
+  assert.deepEqual(reconcilePending(server, [latest]), { remaining: [latest], conflicts: [] });
+});
