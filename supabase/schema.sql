@@ -171,6 +171,7 @@ create index trainer_students_trainer_status_idx on public.trainer_students(trai
 create table public.trainer_invites (
   id uuid primary key default gen_random_uuid(), trainer_id uuid not null references public.account_profiles(user_id),
   email text not null check (length(email) between 5 and 255),
+  student_name text check (student_name is null or length(student_name) between 1 and 80),
   status text not null default 'pending' check (status in ('pending','accepted','expired','revoked')),
   expires_at timestamptz not null, created_at timestamptz not null default now(), accepted_at timestamptz
 );

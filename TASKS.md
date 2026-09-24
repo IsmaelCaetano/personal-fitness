@@ -4,6 +4,7 @@ Cada tarefa deve caber em um commit revisável e reversível.
 
 ## Agora
 
+- [ ] **Convite e cadastro — integração visual** — Novo personal escolhe modo no cadastro; aluno novo define senha pelo link; executar teste real com dois e-mails controlados, inclusive Auth expirado, resposta de conta existente e UI de Perfil/Personal em celular. A migração `202609240006` foi aplicada e verificada no Supabase em 2026-09-24, sem alterar as 94 linhas existentes. O teste local não abre servidor dev neste ambiente (`uv_interface_addresses`), então não declarar esses fluxos como validados em navegador autenticado.
 - [ ] **Lote 1 — integração** — Migração aplicada em produção em 2026-09-24; conferir duas abas, dois dispositivos, offline/reconexão e conflitos reais com navegador autenticado.
 - [ ] **Lote 2 — integração** — Migração e chave privada aplicadas em produção; validar RPC/RLS e quota com Gemini real usando conta autenticada.
 - [ ] **Lote 3 — verificação real** — Validar trocas e recusas no navegador e persistência do perfil com conta autenticada em produção.
@@ -28,6 +29,7 @@ Cada tarefa deve caber em um commit revisável e reversível.
 
 ## Feito
 
+- [x] **Ajustes de convite, formulários e mídia local** — Formulários Perfil/Personal espaçados; seleção de conta personal; pré-cadastro nome/e-mail e senha definida pelo próprio aluno; 19 mapeamentos de imagens de demonstração verificadas no catálogo aberto, conservados offline via Service Worker. Gif do Treino não incorporado sem licença. `pnpm check` passa localmente; integração com contas reais continua pendente.
 - [x] **Migrações de produção, 2026-09-24** — Aplicados em transações, na ordem, os seis arquivos `202609230001` a `202609240005` no projeto Supabase `personal-fitness`. Antes, criada cópia privada `deployment_backups.fitness_resources_pre_20260924`; depois, 94 registros originais e 94 cópias com conteúdo original igual, 11 tabelas novas com RLS, 22 policies, acesso do papel `authenticated` à cópia negado. SQL Editor não registra essas execuções no histórico formal de migrations; verificar manualmente antes de repetir. Testes com usuários reais continuam pendentes.
 
 - [x] **Lote 3 — código local** — Padrão, região, mecânica e lateralidade opcionais; catálogo ampliado sem alterar IDs antigos; filtro determinístico, equipagem/recusa/override, proteção contra alternativas antigas ruins e IA livre; testes de equivalência. Verificação real pendente.
