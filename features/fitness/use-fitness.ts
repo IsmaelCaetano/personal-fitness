@@ -1,173 +1,85 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { fitnessDataSchema, resourceSchemas, type Entity, type FitnessData, type Resource } from '@/lib/fitness/model';
-import { reconcilePending, type PendingChange } from '@/lib/fitness/sync';
+import type { Entity, Resource } from '@/lib/fitness/model';
+import { FitnessSyncClient, SyncHttpError, type SyncState, type SyncTransport } from '@/lib/fitness/sync-client';
+import { openFitnessCache, parseFitnessData, type ClaimCache, type FitnessCache } from '@/lib/fitness/sync-cache';
 import { toast } from 'sonner';
 
-type SaveState = 'loading' | 'saved' | 'saving' | 'offline' | 'error';
-const keyMap = { exercise: 'exercises', routine: 'routines', session: 'sessions', measurement: 'measurements' } as const;
-const conflictMessage = 'Há alterações diferentes neste aparelho e na nuvem. Escolha qual versão manter para os registros em conflito.';
+const transport: SyncTransport = {
+  async read() {
+    const response = await fetch('/api/fitness', { cache: 'no-store', signal: AbortSignal.timeout(20000) });
+    if (!response.ok) throw new SyncHttpError(response.status, response.status === 401 ? 'Entre novamente para abrir seus treinos.' : 'Não foi possível carregar. Tente novamente.');
+    return parseFitnessData(await response.json());
+  },
+  async save(change) {
+    const response = await fetch('/api/fitness', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(change), signal: AbortSignal.timeout(20000) });
+    const result = await response.json() as { version?: number; error?: string };
+    if (!response.ok) throw new SyncHttpError(response.status, result.error ?? 'Não foi possível salvar agora.');
+    if (!Number.isSafeInteger(result.version) || result.version! < 0) throw new Error('Confirmação de salvamento inválida. Sua alteração foi preservada.');
+    return result.version!;
+  },
+};
 
-function apply(data: FitnessData, change: PendingChange): FitnessData {
-  if (change.resource === 'profile') return { ...data, profile: change.entity as FitnessData['profile'] };
-  const key = keyMap[change.resource];
-  const list = data[key].filter((entity) => entity.id !== change.id);
-  return { ...data, [key]: change.remove ? list : [...list, change.entity] };
-}
+const claimCache: ClaimCache = key => new Promise((resolve, reject) => {
+  if (!navigator.locks) { reject(new Error('Este navegador não oferece proteção de dados entre abas. Atualize o navegador para continuar; seus dados locais foram preservados.')); return; }
+  void navigator.locks.request(key, { ifAvailable: true }, lock => {
+    if (!lock) { resolve(undefined); return; }
+    return new Promise<void>(release => { resolve(release); });
+  }).catch(reject);
+});
 
-async function readServer(): Promise<FitnessData> {
-  const response = await fetch('/api/fitness', { cache: 'no-store' });
-  if (!response.ok) throw new Error(response.status === 401 ? 'Entre novamente para abrir seus treinos.' : 'Não foi possível carregar. Tente novamente.');
-  return response.json() as Promise<FitnessData>;
-}
+const initialState: SyncState = { data: null, status: 'loading', error: '', online: true, localSafe: true, conflict: false };
 
 export function useFitness(uid: string) {
-  const [data, setData] = useState<FitnessData | null>(null);
-  const [status, setStatus] = useState<SaveState>('loading');
-  const [error, setError] = useState('');
-  const [online, setOnline] = useState(true);
-  const [conflict, setConflict] = useState(false);
-  const [localSafe, setLocalSafe] = useState(true);
-  const dataRef = useRef<FitnessData | null>(null);
-  const pending = useRef<PendingChange[]>([]);
-  const busy = useRef(false);
-  const blocked = useRef(false);
+  const [state, setState] = useState<SyncState>(initialState);
+  const client = useRef<FitnessSyncClient | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const storageKey = `personal-fitness-pending:${uid}`;
-  const snapshotKey = `personal-fitness-data:${uid}`;
-
-  const storeSnapshot = useCallback((next: FitnessData) => {
-    try { localStorage.setItem(snapshotKey, JSON.stringify(next)); setLocalSafe(true); return true; }
-    catch { setLocalSafe(false); return false; }
-  }, [snapshotKey]);
-  const storePending = useCallback(() => {
-    try { localStorage.setItem(storageKey, JSON.stringify(pending.current)); setLocalSafe(true); return true; }
-    catch { setLocalSafe(false); setError('Não foi possível manter uma cópia neste aparelho. Mantenha a página aberta até salvar.'); return false; }
-  }, [storageKey]);
-
-  // Refresh the server version without dropping edits made while a request was in flight.
-  const adoptServer = useCallback((server: FitnessData, choice: 'ask' | 'local' | 'cloud' = 'ask') => {
-    const { remaining, conflicts } = reconcilePending(server, pending.current);
-    const conflicting = new Set(conflicts.map((change) => change.id));
-    pending.current = choice === 'cloud' ? remaining.filter((change) => !conflicting.has(change.id))
-      : choice === 'local' ? remaining.map((change) => conflicting.has(change.id) ? { ...change, version: server.versions[change.id] ?? 0 } : change)
-        : remaining;
-    let merged = server;
-    for (const change of pending.current) merged = apply(merged, change);
-    dataRef.current = merged;
-    setData(merged);
-    storePending();
-    storeSnapshot(merged);
-    const unresolved = choice === 'ask' && conflicts.length > 0;
-    blocked.current = unresolved;
-    setConflict(unresolved);
-    if (unresolved) { setStatus('error'); setError(conflictMessage); }
-    else { setStatus(pending.current.length ? 'saving' : 'saved'); setError(''); }
-    return unresolved;
-  }, [storePending, storeSnapshot]);
-
-  const flush = useCallback(async () => {
-    if (busy.current || blocked.current || !dataRef.current) return;
-    if (!navigator.onLine) { setStatus('offline'); return; }
-    busy.current = true;
-    let refreshes = 0;
-    try {
-      while (pending.current.length) {
-        setStatus('saving');
-        const item = { ...pending.current[0] };
-        const response = await fetch('/api/fitness', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item) });
-        const result = await response.json() as { version?: number; error?: string };
-        if (response.status === 409) {
-          if (++refreshes > 2) throw new Error('Não foi possível sincronizar. Tente novamente.');
-          const unresolved = adoptServer(await readServer());
-          if (unresolved) return;
-          continue;
-        }
-        if (!response.ok) {
-          if (response.status === 400 || response.status === 401) blocked.current = true;
-          throw new Error(result.error ?? 'Erro ao salvar.');
-        }
-        refreshes = 0;
-        const version = result.version ?? 0;
-        dataRef.current = { ...dataRef.current!, versions: { ...dataRef.current!.versions, [item.id]: version } };
-        const current = pending.current.find((change) => change.id === item.id);
-        if (current?.stamp === item.stamp) pending.current = pending.current.filter((change) => change.id !== item.id);
-        else if (current) current.version = version;
-        storePending();
-        storeSnapshot(dataRef.current);
-        setData({ ...dataRef.current });
-      }
-      setStatus('saved'); setError('');
-    } catch (caught) {
-      setStatus(navigator.onLine ? 'error' : 'offline');
-      setError(caught instanceof Error ? caught.message : 'Erro ao salvar.');
-    } finally { busy.current = false; }
-  }, [adoptServer, storePending, storeSnapshot]);
-
-  const load = useCallback(async () => {
-    setStatus('loading');
-    try {
-      const server = await readServer();
-      let local: PendingChange[] = [];
-      try {
-        const saved = JSON.parse(localStorage.getItem(storageKey) ?? '[]') as unknown;
-        if (Array.isArray(saved)) local = saved as PendingChange[];
-      } catch { /* A cached snapshot is still available for recovery. */ }
-      pending.current = local;
-      const unresolved = adoptServer(server);
-      setOnline(true);
-      if (!unresolved && pending.current.length) void flush();
-    } catch (caught) {
-      try {
-        const cached = fitnessDataSchema.safeParse(JSON.parse(localStorage.getItem(snapshotKey) ?? 'null'));
-        if (cached.success) {
-          dataRef.current = cached.data; setData(cached.data); setOnline(false); setStatus('offline');
-          setError('Sem conexão. Seus dados salvos neste aparelho continuam disponíveis e serão sincronizados depois.');
-          return;
-        }
-      } catch { /* No readable cached data. */ }
-      setStatus('error'); setError(caught instanceof Error ? caught.message : 'Falha ao carregar.');
-    }
-  }, [storageKey, snapshotKey, adoptServer, flush]);
+  const [restart, setRestart] = useState(0);
 
   useEffect(() => {
-    queueMicrotask(() => void load());
-    const onOnline = () => { setOnline(true); void flush(); };
-    const onOffline = () => { setOnline(false); if (pending.current.length) setStatus('offline'); };
-    const before = (event: BeforeUnloadEvent) => { if (pending.current.length) { event.preventDefault(); event.returnValue = ''; } };
+    let cancelled = false;
+    let cache: FitnessCache | undefined;
+    let current: FitnessSyncClient | undefined;
+    let unsubscribe: (() => void) | undefined;
+    const initialize = async () => {
+      setState(initialState);
+      try {
+        cache = await openFitnessCache(uid, localStorage, claimCache);
+        if (cancelled) { cache.close(); return; }
+        current = new FitnessSyncClient(cache, transport, () => navigator.onLine);
+        client.current = current;
+        unsubscribe = current.subscribe(() => setState(current!.getSnapshot()));
+        setState(current.getSnapshot());
+        await current.load();
+      } catch (error) {
+        if (!cancelled) setState({ ...initialState, status: 'error', localSafe: false, error: error instanceof Error ? error.message : 'Não foi possível abrir os dados locais.' });
+      }
+    };
+    void initialize();
+    const onOnline = () => { void current?.load(); };
+    const onOffline = () => { void current?.flush(); };
+    const before = (event: BeforeUnloadEvent) => { if (current?.hasPending()) { event.preventDefault(); event.returnValue = ''; } };
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
     window.addEventListener('beforeunload', before);
-    const retry = setInterval(() => { if (pending.current.length) void flush(); }, 10000);
+    const retry = setInterval(() => { if (current?.hasPending()) void current.flush(); }, 10000);
     return () => {
+      cancelled = true; unsubscribe?.(); current?.dispose(); cache?.close();
+      if (client.current === current) client.current = null;
       window.removeEventListener('online', onOnline); window.removeEventListener('offline', onOffline);
       window.removeEventListener('beforeunload', before); clearInterval(retry);
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [load, flush]);
+  }, [uid, restart]);
 
   const mutate = useCallback((resource: Resource, entity: Entity, remove = false) => {
-    if (!dataRef.current) return;
-    const parsed = resourceSchemas[resource].safeParse(entity);
-    if (!remove && !parsed.success) { toast.error(parsed.error.issues[0]?.message ?? 'Confira os campos.'); return; }
-    const existing = pending.current.find((change) => change.id === entity.id);
-    const change: PendingChange = { resource, entity, id: entity.id, remove, version: existing?.version ?? dataRef.current.versions[entity.id] ?? 0, stamp: Date.now() + Math.random() };
-    pending.current = existing ? pending.current.map((item) => item.id === entity.id ? change : item) : [...pending.current, change];
-    dataRef.current = apply(dataRef.current, change);
-    setData(dataRef.current);
-    storePending(); storeSnapshot(dataRef.current);
-    setStatus(navigator.onLine ? 'saving' : 'offline');
+    try { client.current?.mutate(resource, entity, remove); }
+    catch (error) { toast.error(error instanceof Error ? error.message : 'Confira os campos.'); return; }
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => void flush(), 450);
-  }, [flush, storePending, storeSnapshot]);
-
-  const resolveConflict = useCallback(async (choice: 'local' | 'cloud' = 'local') => {
-    try {
-      adoptServer(await readServer(), choice);
-      if (pending.current.length) void flush();
-    } catch (caught) { setError(caught instanceof Error ? caught.message : 'Erro ao resolver conflito.'); }
-  }, [adoptServer, flush]);
-
-  return { data, status, error, online, localSafe, conflict, resolveConflict, mutate, retry: flush, reload: load };
+    timer.current = setTimeout(() => void client.current?.flush(), 450);
+  }, []);
+  const retry = useCallback(() => { if (client.current) return client.current.load(); setRestart(value => value + 1); }, []);
+  const resolveConflict = useCallback((choice: 'local' | 'cloud' = 'local') => client.current?.resolveConflict(choice), []);
+  return { ...state, mutate, resolveConflict, retry, reload: retry };
 }
 export type FitnessStore = ReturnType<typeof useFitness>;

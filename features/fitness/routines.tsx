@@ -8,6 +8,7 @@ import {
   Upload,
   Copy,
   Dumbbell,
+  Download,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -47,7 +48,8 @@ import { AIWorkoutBuilder } from "./ai-workout-builder";
 import { library } from "@/lib/fitness/seed";
 import { Choice, Modal, Confirm, EmptyState } from "./shared";
 import type { FitnessStore } from "./use-fitness";
-import { suggestAlternativeExerciseIds } from "@/lib/fitness/recommendations";
+import { suggestAlternativeExerciseIds, rankExerciseAlternatives } from "@/lib/fitness/recommendations";
+import { downloadWorkoutPdf, toWorkoutPdfModel } from "@/lib/fitness/pdf";
 const muscles = [
   "Peito",
   "Costas",
@@ -120,6 +122,9 @@ export function Routines({
             <Upload size={18} />
             Organizar meu treino
           </button>
+          {data.routines.length > 0 && <button className="secondary" onClick={() => downloadWorkoutPdf(toWorkoutPdfModel(data, data.routines)).catch(() => toast.error('Não foi possível criar o PDF.'))}>
+            <Download size={17} /> Baixar programa em PDF
+          </button>}
           <button
             className="primary"
             onClick={() => setEditing(emptyRoutine())}
@@ -167,6 +172,9 @@ export function Routines({
                       <DropdownMenuItem onClick={() => onPreview(r)}>
                         <Eye />
                         Ver treino
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => downloadWorkoutPdf(toWorkoutPdfModel(data, [r])).catch(() => toast.error('Não foi possível criar o PDF.'))}>
+                        <Download /> Baixar treino em PDF
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => onChoose(r)}>
                         <CalendarCheck />
@@ -413,7 +421,7 @@ export function Routines({
     </>
   );
 }
-function RoutineEditor({
+export function RoutineEditor({
   routine,
   exercises,
   defaultRest,
@@ -638,6 +646,11 @@ function RoutineEditor({
                   <strong>Exercícios alternativos</strong>
                   <span>Você poderá trocar apenas no treino do dia.</span>
                 </div>
+                <Choice label="Regra de substituição" value={p.substitutionRule ?? 'automatic'} onChange={(rule) => changePlan(p.id, { substitutionRule: rule as Plan['substitutionRule'] })} options={[
+                  { value: 'automatic', label: 'Equivalentes automáticos' },
+                  { value: 'approved', label: 'Somente alternativas aprovadas' },
+                  { value: 'blocked', label: 'Não permitir substituição' },
+                ]} />
                 {p.alternativeExerciseIds?.length ? (
                   <div className="alternative-chips">
                     {p.alternativeExerciseIds.map((id) => (
@@ -663,11 +676,7 @@ function RoutineEditor({
                   </div>
                 ) : null}
                 <Combobox<Exercise>
-                  items={exercises.filter(
-                    (e) =>
-                      e.id !== p.exerciseId &&
-                      !p.alternativeExerciseIds?.includes(e.id),
-                  )}
+                  items={rankExerciseAlternatives(p.exerciseId, exercises).map(({ exercise }) => exercise).filter((e) => !p.alternativeExerciseIds?.includes(e.id))}
                   itemToStringLabel={(e) => e.name}
                   value={null}
                   onValueChange={(exercise) => {

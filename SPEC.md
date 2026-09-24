@@ -55,6 +55,10 @@ Pessoas que treinam musculação, corrida ou atividades híbridas precisam organ
 | R14 | Falha de rede deve preservar alterações locais pendentes e permitir sincronização posterior sem duplicar gravação já confirmada. | Ao entrar, compara a fila com a nuvem e remove a alteração idêntica já salva; mantém as demais e solicita escolha somente se o conteúdo divergir. |
 | R15 | Nenhuma credencial privada pode aparecer no bundle do cliente ou no repositório. | Gate de segredos e revisão de variáveis `NEXT_PUBLIC_*`. |
 | R16 | Importar semana com múltiplas sessões em um dia, atividade cardio junto de força, descanso e cargas progressivas sem perder linhas. | Teste de importação espera duas rotinas na segunda, futebol de 60 min na terça, domingo sem rotina e cargas 100/110/120 kg por série. Prévia permite corrigir o dia. |
+| R17 | Edições durante um envio preservam tanto a intenção mais recente quanto a tentativa em trânsito. | Resposta perdida e retry confirmam a tentativa anterior sem descartar a edição posterior; versões divergentes de outro dispositivo continuam exigindo escolha. |
+| R18 | A fila é recuperada antes de qualquer leitura de rede e abas não sobrescrevem os rascunhos umas das outras. | Abertura offline, reconexão, duas abas e recuperação de diário abandonado são cobertas por testes. |
+| R19 | A versão de um ID nunca reinicia depois de excluir/restaurar; inicializar a conta não sobrescreve perfil nem oculta recursos existentes. | Testes de exclusão/restauração rejeitam escrita de dispositivo antigo; criação concorrente do perfil usa `ON CONFLICT DO NOTHING`. |
+| R20 | Cada conta individual tem duas gerações de programa por IA por mês calendário UTC. Importações, OCR, edição e treino manual não consomem quota. | Reserva e conclusão transacionais por usuário e ID de requisição; falha libera reserva; retry retorna mesmo plano válido. |
 
 ## Ambiente
 
@@ -90,8 +94,93 @@ Falhas de autenticação ou RLS podem expor dados entre usuários e são crític
 | D4 | IA seleciona IDs de uma biblioteca controlada. | Mantém mídia, músculos e alternativas consistentes. | Aceitar nomes livres sem vínculo. |
 | D5 | OCR apenas transcreve; parser e usuário revisam depois. | Reduz risco de salvar interpretação incorreta. | Importar foto direto no banco. |
 | D6 | Toda geração é específica à conta atual. | O MVP atende múltiplos usuários sem regras pessoais hardcoded. | Perfil fixo do criador. |
+| D7 | Preservar uma tentativa imutável na fila até confirmar seu resultado. | A edição mais nova não é evidência do conteúdo de uma requisição anterior cuja resposta se perdeu. | Sobrescrever a tentativa ou incrementar versão sem confirmação. |
+| D8 | Cada aba possui um diário local exclusivo, protegido por Web Locks. | Evita sobrescrita de filas entre abas; abas encerradas liberam diários recuperáveis. | Um array compartilhado em localStorage com last-write-wins. |
+| D9 | Exclusão mantém marcador e versão crescente, com payload vazio. | Impede que excluir/restaurar reabra uma versão antiga para outro dispositivo. | Apagar a linha e recriar com `version=1`. |
+| D10 | Quota de IA usa tabelas relacionais e funções PostgreSQL acessíveis só ao servidor. | Requests paralelos e repetidos não ultrapassam o limite; falhas não consomem. | Contador em JSONB ou apenas na UI. |
+
+## Protocolo de sincronização — Lote 1
+
+- Arquitetura preservada: entidade JSONB por usuário, CAS por `version`, fila otimista, retry e HTTP 409. `sync-client.ts` contém o mesmo ciclo de sincronização isolado do React para testes de requisições em trânsito; o hook mantém debounce de 450 ms e retry de 10 s. Requests têm timeout de 20 s.
+- A intenção mais recente e a tentativa enviada são persistidas juntas, antes do POST. Confirmação da tentativa avança somente a versão daquela entidade. `stamp` é monotônico dentro do diário. Dados são normalizados pelo mesmo Zod antes de enfileirar.
+- Depois de falha ambígua, ler a nuvem antes do retry. Uma tentativa de update/insert só é reconhecida pelo conteúdo **e pela próxima versão exata**. Se o GET ainda vê o estado anterior, não descartar a intenção mais nova: o request pode estar terminando no servidor.
+- Conflitos reais bloqueiam apenas os IDs afetados. Os demais sincronizam normalmente. Resolver um conflito não aceita uma versão da nuvem nem descarta uma edição local surgida depois da versão apresentada ao usuário.
+- A fila é carregada antes da rede, inclusive offline. O cache antigo é transferido somente depois de uma gravação durável; conteúdo ilegível permanece intacto. Snapshot e fila ficam no mesmo envelope local. Falha de armazenamento mantém a fila em memória e exibe aviso para manter a aba aberta.
+- Diários são separados por usuário e aba. Web Locks mantêm a posse até desmontagem/encerramento, inclusive em abas duplicadas. Diários abandonados são recuperados sequencialmente, sem combinar silenciosamente versões locais diferentes. Browser sem Web Locks ou armazenamento acessível recebe erro explícito, sem apagar dados; o contrato é navegador moderno em HTTPS.
+- `deletedIds` é opcional para tolerar snapshots anteriores. `versions` inclui marcadores de exclusão. A API devolve somente entidades não excluídas; restauração explícita usa CAS na versão do marcador. O payload excluído é substituído por `{}`; sessões históricas independentes permanecem intactas.
+- A migração `202609230001_fitness_deletion_versions.sql` adiciona somente `deleted_at`, sem alterações em RLS ou dados existentes. Aplicar a migração versionada **antes** de publicar o código. Não remover os marcadores/coluna ao reverter: depois de novas exclusões, rollback precisa manter filtragem de `deleted_at` e versões monotônicas. A migração não recupera versões de exclusões físicas anteriores a ela.
+
+### Evidência e limites da validação
+
+- Reproduzidos com falha antes da correção: resposta perdida seguida de nova edição; reinício de versão após excluir/restaurar o mesmo ID.
+- `tests/sync-client.test.ts`: cenários A–O com transporte controlado e promises suspensas, alterações durante GET/POST, escolha local/nuvem, timeout/perda de resposta simulados, falha de armazenamento e sessão expirada.
+- `tests/sync-cache.test.ts`: localStorage compartilhado simulado, isolamento entre abas/contas, migração, retomada de diários e cache corrompido. Gerenciador de locks simulado; ainda falta smoke test com Web Locks reais em navegadores.
+- `tests/persistence.test.ts`: executa o query builder usado pela API contra um adaptador PostgREST em memória (CAS, restrição única, filtros de usuário/recurso, bootstrap e exclusões). Não equivale a testar RLS/transações contra Postgres real.
+- A migração, o fluxo autenticado em produção e dois dispositivos reais precisam de validação antes de liberar este lote. Nenhuma credencial nem dados de produção são usados nos testes.
 
 ## Em aberto
+
+## Substituições equivalentes — Lote 3
+
+- O catálogo mantém todos os IDs `base-*` originais e acrescenta variantes ao final. Campos opcionais de movimento, região, mecânica e lateralidade aceitam perfis antigos; exercícios sem classificação segura não recebem sugestões automáticas.
+- Uma substituição automática exige o mesmo padrão de movimento, região alvo e mecânica. Equipamentos indisponíveis, alternativas recusadas e candidatas fora da lista aprovada pelo treinador são removidos. Uma lista vazia é aceitável; conteúdo já salvo incompatível também é filtrado na execução.
+- Alternativas sugeridas pela IA são ignoradas. O servidor gera opções usando o filtro determinístico depois de validar o programa; nunca pede à IA que escolha livremente pelo músculo.
+- O motivo de recusa do usuário fica opcionalmente no próprio perfil e só afeta a relação entre exercício principal e alternativa, sem alterar a biblioteca global.
+
+## Exportação em PDF — Lote 4
+
+- Rotina ou programa inteiro podem ser exportados em A4 com cabeçalho claro, atleta, objetivo, data, meta semanal, exercícios, séries, alvo, carga, descanso, esforço e observações. Histórico real fornece última carga quando houver; IDs técnicos não entram no modelo exportado.
+- Transformação pura `FitnessData → WorkoutPdfModel` é testada e a renderização com jsPDF é carregada no clique. jsPDF é biblioteca mantida para PDF no navegador e evita serviço externo e envio de dados do treino. Script transitivo de `core-js` não é autorizado no install.
+
+## Assistente de séries — Lote 5
+
+- Regras puras usam alvo de repetições, resultado e esforço (RIR/RPE) para orientar progressão conservadora após cada série concluída. Séries de aquecimento, etapas de duração e registros pendentes não geram dica de carga. Sem histórico, a mensagem estabelece uma linha de base.
+- Camada explicativa por Gemini é opcional e não é chamada por série; qualquer integração posterior precisa de limite de requisições persistido e fallback para estas regras.
+
+## Auditoria de segurança — Lote 6
+
+- Rotas existentes exigem sessão e origem para mutações; payloads têm limites e validação. Callback de autenticação só aceita redirecionamento local. Erros de persistência e OCR não registram exceções com possíveis dados da conta.
+- `api_rate_limits` contém janelas por conta e operação. A RPC usa `auth.uid()` internamente e operações/tetos fixos; OCR e gerador retornam 429 ao atingir teto, 503 se migração ausente.
+- `SECURITY.md` descreve ameaças, controles, migrações e verificações pendentes. RLS e funções SQL ainda precisam de testes contra Postgres real antes de deploy.
+
+## Fundação trainer/aluno — Lote 7
+
+- Relações, convites, perfis de conta, atribuições, feedback, notificações e pagamentos ficam em tabelas relacionais com RLS. Dados individuais atuais permanecem em `fitness_resources`, sem migração destrutiva. Trainer ativo lê perfil/histórico necessário do aluno; aluno executa sessões na própria conta.
+- Seleção explícita do modo personal chama RPC com a própria identidade autenticada. `account_type` não pode ser atualizado livremente por um PATCH da conta.
+- Convite exige personal autenticado, rate limit e service role no servidor para `inviteUserByEmail`. Aceitação exige usuário Auth com o mesmo e-mail, convite pendente e prazo de sete dias; associação é feita em RPC, sem `student_id` fornecido pelo navegador. Alunos antigos mantêm dados mesmo depois de encerrar vínculo.
+- Políticas vetam escrita estrutural de prescrições pelo aluno e leitura de outro aluno. Ex-aluno deixa de aparecer no acesso ativo. É necessário validar RLS com contas reais após migrar.
+
+## Acompanhamento e atribuição — Lote 8
+
+- `/trainer` permite escolher conta profissional, convidar, aceitar convite recebido, abrir aluno ativo, ver objetivo/histórico, atribuir ou editar rotina e baixar PDF. Editor de rotina existente é reutilizado. A prescrição guarda versão e escrita CAS; consulta ao aluno exige vínculo ativo, além da RLS.
+- O aluno vê prescrições ativas em Hoje, pode visualizar e executar; séries e histórico são gravados somente em sua própria conta. `trainer_routines` não permite edição estrutural pelo aluno. Durante vínculo, prescrições aparecem antes do painel individual; rotinas anteriores não são apagadas.
+- A regra da prescrição controla substituições: automática, somente IDs aprovados ou bloqueada. É aplicada na visualização e no treino, inclusive quando há alternativas antigas persistidas.
+
+## Feedback e notificações — Lote 9
+
+- Aluno vinculado envia comentário, pedido de troca, equipamento indisponível, dificuldade ou desconforto. Servidor valida vínculo ativo, limite por hora e, quando informado, que a prescrição pertence ao mesmo vínculo. Personal responde e resolve apenas feedback de seu aluno ativo.
+- Triggers de banco criam notificações para feedback, resposta, ativação do vínculo e atribuição/edição de treino; a lista e marcação de leitura pertencem só ao usuário autenticado. Solicitação de outra opção aparece dentro do treino prescrito.
+- Desconforto é tratado como relato, sem diagnóstico. Notificações de pagamento são descritas no lote administrativo seguinte.
+
+## Constância e pagamentos — Lote 10
+
+- Métricas em UTC: últimos 7/30 dias contam sessões concluídas e não demonstrativas; planejado são pares (rotina, data) que caem nos dias de agenda nos últimos sete dias; concluído planejado conta cada par no máximo uma vez; aderência é concluído/planejado × 100, ou sem percentual quando não há agenda; sequência semanal conta semanas consecutivas com ao menos um treino.
+- Mensalidade é apenas registro administrativo, sem Pix, Stripe ou cartão. Personal ativo cria/atualiza mês, valor, vencimento, status e observação. Atrasado deriva de pendente com vencimento anterior à data atual. Notificações de proximidade/atraso são geradas uma vez por registro quando a conta consulta notificações.
+
+## Perfil e senha — Lote 11
+
+- Campos opcionais novos preservam perfis antigos: nível, duração, dias, equipamentos, preferências e limitações. O gerador usa esses dados do próprio atleta/aluno autorizado e mostra que enviará conteúdo ao Gemini.
+- Senha é atualizada via Supabase Auth; mínimo de oito caracteres, confirmação local, senha atual e nonce de reautenticação quando exigidos pelo provedor. Nenhuma senha é guardada em `fitness_resources`.
+- No modo trainer, Gemini usa apenas perfil/histórico do aluno vinculado após validação explícita; request ID é vinculado ao sujeito e ao pedido para retry sem reutilizar plano de outro aluno. O personal revisa, edita o rascunho e decide atribuir.
+
+
+## Quota de IA — Lote 2
+
+- Somente a criação de programas pela IA conta: duas solicitações bem-sucedidas por mês calendário UTC para a conta individual gratuita. Edição, importação, OCR e treino manual continuam sem quota de geração.
+- `ai_usage` e `ai_generation_requests` são relacionais e independentes do JSONB de fitness. Reserva, conclusão e liberação passam por RPCs transacionais restritas a `service_role`, com trava por usuário/período. O ID da tentativa preserva resposta válida para retries sem cobrança duplicada.
+- Reservas pendentes abandonadas por mais de dois minutos são liberadas na consulta seguinte; resultado falho no Gemini/JSON/Zod/domínio libera a reserva. Falha ambígua ao confirmar não devolve plano ainda não confirmado como sucesso.
+- Migrar `202609240001_ai_usage.sql` após a migration do lote 1, antes de publicar a rota. `SUPABASE_SERVICE_ROLE_KEY` é privada na Vercel, sem prefixo público. O contador e a renovação são consultados em `/api/ai/workout` por GET autenticado.
+- Testes locais simulam concorrência e retry; ainda falta teste da função SQL e RLS em Postgres real.
 
 - [ ] Definir limites comerciais de gerações por usuário/dia antes de abrir o MVP publicamente.
 - [ ] Decidir se equipamentos e nível também serão persistidos no perfil, além do pedido de cada geração.

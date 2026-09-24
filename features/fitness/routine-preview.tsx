@@ -1,11 +1,13 @@
 "use client";
 import { useState } from "react";
-import { CalendarCheck, Clock3, Dumbbell, Play, Replace } from "lucide-react";
+import { CalendarCheck, Clock3, Download, Dumbbell, Play, Replace } from "lucide-react";
 import type { FitnessData, Routine } from "@/lib/fitness/model";
 import { library } from "@/lib/fitness/seed";
 import { Choice, Modal, EmptyState } from "./shared";
 import { ExerciseMedia } from "./exercise-media";
-import { alternativesFor } from "@/lib/fitness/recommendations";
+import { alternativesForPlan } from "@/lib/fitness/recommendations";
+import { downloadWorkoutPdf, toWorkoutPdfModel } from "@/lib/fitness/pdf";
+import { toast } from "sonner";
 
 export function RoutinePreview({
   routine,
@@ -13,12 +15,16 @@ export function RoutinePreview({
   onClose,
   onStart,
   onChoose,
+  assigned = false,
+  trainerName,
 }: {
   routine: Routine;
   data: FitnessData;
   onClose: () => void;
   onStart: (r: Routine, substitutions?: Record<string, string>) => void;
   onChoose: (r: Routine) => void;
+  assigned?: boolean;
+  trainerName?: string;
 }) {
   const exercises = [...library, ...data.exercises];
   const [substitutions, setSubstitutions] = useState<Record<string, string>>(
@@ -75,10 +81,10 @@ export function RoutinePreview({
         {routine.exercises.map((plan, i) => {
           const selectedId = substitutions[plan.id] ?? plan.exerciseId;
           const exercise = exercises.find((e) => e.id === selectedId);
-          const alternatives = alternativesFor(
-            plan.exerciseId,
-            plan.alternativeExerciseIds,
+          const alternatives = alternativesForPlan(
+            plan,
             exercises,
+            { excludedIds: data.profile.rejectedAlternatives?.filter((item) => item.sourceId === plan.exerciseId).map((item) => item.candidateId) },
           );
           return (
             <article className="preview-exercise card" key={plan.id}>
@@ -125,7 +131,7 @@ export function RoutinePreview({
                     ]}
                   />
                   <p>
-                    Compatíveis com o mesmo grupo muscular. A troca vale só para
+                    Mesmo padrão de movimento e região alvo. A troca vale só para
                     hoje.
                   </p>
                 </div>
@@ -142,7 +148,14 @@ export function RoutinePreview({
         />
       )}
       <div className="preview-bottom-actions">
-        <button
+        <button className="secondary" onClick={() => {
+          const pdf = toWorkoutPdfModel(data, [routine]);
+          pdf.trainer = trainerName;
+          downloadWorkoutPdf(pdf).catch(() => toast.error('Não foi possível criar o PDF.'));
+        }}>
+          <Download size={17} /> Baixar treino em PDF
+        </button>
+        {!assigned && <button
           className="secondary"
           onClick={() => {
             onChoose(routine);
@@ -151,7 +164,7 @@ export function RoutinePreview({
         >
           <CalendarCheck size={17} />
           Escolher para hoje
-        </button>
+        </button>}
         <button
           className="primary"
           disabled={!routine.exercises.length}

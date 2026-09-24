@@ -12,6 +12,9 @@ export async function POST(request: Request) {
   const origin = request.headers.get("origin");
   if (origin && origin !== new URL(request.url).origin) return Response.json({ error: "Origem inválida." }, { status: 403 });
   try {
+    const limit = await supabase.rpc('consume_api_rate_limit', { p_operation: 'ocr' });
+    if (limit.error) return Response.json({ error: 'Leitura de imagens indisponível no momento.' }, { status: 503 });
+    if (!limit.data) return Response.json({ error: 'Limite temporário de leituras atingido. Tente novamente em uma hora.' }, { status: 429 });
     const raw = await request.text();
     if (raw.length > 3_800_000) return Response.json({ error: "A imagem precisa ser menor. Recorte a ficha e tente de novo." }, { status: 413 });
     const parsed = requestSchema.safeParse(JSON.parse(raw));
@@ -26,7 +29,6 @@ export async function POST(request: Request) {
     ]);
     return Response.json({ text: text.slice(0, 50_000) }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    console.error("workout ocr", error);
     const message = error instanceof Error ? error.message : "Falha ao ler imagem.";
     if (message === "AI_NOT_CONFIGURED") return Response.json({ error: "A leitura por imagem ainda não foi configurada pelo administrador." }, { status: 503 });
     return Response.json({ error: "Não foi possível ler esta imagem. Tente uma foto mais nítida e bem iluminada." }, { status: 503 });

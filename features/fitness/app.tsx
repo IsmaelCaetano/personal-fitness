@@ -42,7 +42,9 @@ import {
   getPreviousExercisePerformance,
   localDate,
 } from "@/lib/fitness/domain";
-import { alternativesFor } from "@/lib/fitness/recommendations";
+import { alternativesForPlan } from "@/lib/fitness/recommendations";
+import { NotificationBell } from './notification-bell';
+import { AssignedFeedback } from './assigned-feedback';
 const navigation = [
   { id: "today", label: "Hoje", icon: House },
   { id: "routines", label: "Treinos", icon: Dumbbell },
@@ -59,6 +61,10 @@ export function FitnessApp({ uid, email }: { uid: string; email: string }) {
   const [newRoutine, setNewRoutine] = useState(false);
   const [resolve, setResolve] = useState(false);
   const [preview, setPreview] = useState<Routine | null>(null);
+  const [assigned, setAssigned] = useState<(Routine & { trainerId: string; assignmentId: string; trainerName?: string })[]>([]);
+  useEffect(() => {
+    fetch('/api/trainer/assigned', { cache: 'no-store' }).then((response) => response.ok ? response.json() : { routines: [] }).then((payload: { routines: (Routine & { trainerId: string; assignmentId: string; trainerName?: string })[] }) => setAssigned(payload.routines)).catch(() => {});
+  }, []);
   useEffect(() => {
     const initial = window.location.hash.slice(1);
     if (["today", "routines", "history", "progress", "profile", "active"].includes(initial)) queueMicrotask(() => setView(initial));
@@ -95,7 +101,7 @@ export function FitnessApp({ uid, email }: { uid: string; email: string }) {
       substitutions === undefined &&
       r.exercises.some(
         (p) =>
-          alternativesFor(p.exerciseId, p.alternativeExerciseIds, exercises)
+          alternativesForPlan(p, exercises)
             .length,
       )
     ) {
@@ -116,11 +122,7 @@ export function FitnessApp({ uid, email }: { uid: string; email: string }) {
         const requested = chosen[p.id];
         const exerciseId =
           requested &&
-          alternativesFor(
-            p.exerciseId,
-            p.alternativeExerciseIds,
-            exercises,
-          ).includes(requested)
+          alternativesForPlan(p, exercises).includes(requested)
             ? requested
             : p.exerciseId;
         const exercise =
@@ -346,6 +348,9 @@ export function FitnessApp({ uid, email }: { uid: string; email: string }) {
           ) : (
             <>
               {view === "today" && (
+                <>
+                <NotificationBell />
+                {assigned.length > 0 && <section className="card"><h2>Treinos atribuídos pelo personal</h2><p>Escolha uma prescrição para ver e executar hoje. Seu histórico individual permanece salvo.</p><div>{assigned.map((routine) => <div className="routine-management" key={routine.id}><button className="secondary" onClick={() => setPreview(routine)}>{routine.name} · Ver treino</button><AssignedFeedback trainerId={routine.trainerId} assignmentId={routine.assignmentId}/></div>)}</div></section>}
                 <Dashboard
                   data={data}
                   onStart={start}
@@ -362,6 +367,7 @@ export function FitnessApp({ uid, email }: { uid: string; email: string }) {
                   onFinish={finishSession}
                   onAddActivity={addActivity}
                 />
+                </>
               )}{" "}
               {view === "routines" && (
                 <Routines
@@ -382,6 +388,8 @@ export function FitnessApp({ uid, email }: { uid: string; email: string }) {
                     session={active}
                     data={data}
                     onChange={(s) => mutate("session", s)}
+                    onProfileChange={(profile) => mutate("profile", profile)}
+                    trainerAssignment={assigned.find((routine) => routine.id === active.routineId)}
                     onFinish={finishSession}
                     onBack={() => navigate("today")}
                   />
@@ -436,6 +444,8 @@ export function FitnessApp({ uid, email }: { uid: string; email: string }) {
                   onClose={() => setPreview(null)}
                   onStart={start}
                   onChoose={choose}
+                  assigned={assigned.some((routine) => routine.id === preview.id)}
+                  trainerName={assigned.find((routine) => routine.id === preview.id)?.trainerName}
                 />
               )}{" "}
               {details && (

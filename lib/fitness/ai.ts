@@ -52,8 +52,7 @@ export function validateGeneratedProgram(program: GeneratedProgram, brief: Worko
   if (days.length !== brief.days || new Set(days).size !== brief.days || program.routines.some((routine) => !routine.days.length))
     return "O plano não respeitou a quantidade de dias. Gere novamente.";
   if (program.routines.some((routine) => routine.exercises.some((plan) =>
-    !catalog.has(plan.exerciseId) || plan.maxReps < plan.minReps ||
-    plan.alternativeExerciseIds?.some((id) => id === plan.exerciseId || !catalog.has(id) || catalog.get(id)?.muscle !== catalog.get(plan.exerciseId)?.muscle)
+    !catalog.has(plan.exerciseId) || plan.maxReps < plan.minReps
   ))) return "O plano contém exercícios ou substituições inválidos. Gere novamente.";
   if (brief.style === "hibrido" && !program.routines.some((routine) => routine.exercises.some((plan) => catalog.get(plan.exerciseId)?.muscle === "Cardio")))
     return "O plano híbrido precisa incluir atividade cardiovascular. Gere novamente.";
@@ -71,11 +70,10 @@ export function compileGeneratedProgram(program: GeneratedProgram, exercises: Ex
       color: routine.color,
       exercises: routine.exercises.map((plan) => {
         if (!validIds.has(plan.exerciseId)) throw new Error("A IA sugeriu um exercício fora da biblioteca. Gere novamente.");
-        const provided = (plan.alternativeExerciseIds ?? []).filter((id) => validIds.has(id) && id !== plan.exerciseId && exercises.find((exercise) => exercise.id === id)?.muscle === exercises.find((exercise) => exercise.id === plan.exerciseId)?.muscle);
         return {
           id: newId(),
           exerciseId: plan.exerciseId,
-          alternativeExerciseIds: provided.length ? provided : suggestAlternativeExerciseIds(plan.exerciseId, exercises),
+          alternativeExerciseIds: suggestAlternativeExerciseIds(plan.exerciseId, exercises),
           sets: plan.sets,
           minReps: plan.minReps,
           maxReps: Math.max(plan.minReps, plan.maxReps),

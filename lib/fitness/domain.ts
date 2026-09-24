@@ -15,3 +15,17 @@ export const clock=(seconds:number)=>{const s=Math.max(0,Math.floor(seconds));re
 export const displayWeight=(kg:number,unit:'kg'|'lb')=>unit==='lb'?Math.round(kg*2.2046226218*10)/10:kg;
 export const toKg=(weight:number,unit:'kg'|'lb')=>unit==='lb'?weight/2.2046226218:weight;
 export const localDate=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+
+export function coachSetFeedback(input: { plan: Plan; set: WorkoutSet; recent?: WorkoutSet[]; objective?: string }): string | null {
+  const { plan, set } = input;
+  if (set.status !== 'completed' || set.reps == null || plan.targetType && plan.targetType !== 'reps' || set.type === 'warmup') return null;
+  if (set.reps < plan.minReps) return set.rir === 0 || (set.rpe ?? 0) >= 9
+    ? 'A carga parece alta para a faixa prevista. Considere manter ou reduzir levemente.'
+    : 'Você ficou abaixo da faixa. Mantenha a carga ou ajuste levemente e priorize a execução.';
+  if (set.reps >= plan.maxReps && set.rir != null && set.rir >= 2 && (set.rpe ?? 0) < 9)
+    return 'Você atingiu o topo da faixa com margem. Considere aumentar levemente a carga na próxima sessão.';
+  if ((set.rir != null && set.rir <= 1) || (set.rpe != null && set.rpe >= 9))
+    return 'Boa execução dentro da faixa. Mantenha a carga e tente alcançar o topo antes de progredir.';
+  if (!input.recent?.length) return 'Primeira referência registrada. Use este resultado para comparar as próximas sessões.';
+  return 'Você está dentro da faixa. Continue progredindo as repetições antes de aumentar a carga.';
+}

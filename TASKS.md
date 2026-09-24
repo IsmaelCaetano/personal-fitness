@@ -4,8 +4,21 @@ Cada tarefa deve caber em um commit revisável e reversível.
 
 ## Agora
 
+- [ ] **Lote 1 — integração** — Migração aplicada em produção em 2026-09-24; conferir duas abas, dois dispositivos, offline/reconexão e conflitos reais com navegador autenticado.
+- [ ] **Lote 2 — integração** — Migração aplicada em produção; configurar chave privada na Vercel e validar RPC/RLS e quota com Gemini real antes de publicar o código.
+- [ ] **Lote 3 — verificação real** — Validar trocas e recusas no navegador e persistência do perfil em ambiente autenticado antes de publicar.
+- [ ] **Lote 4 — verificação real** — Inspecionar visualmente PDFs longos e texto com acentos no navegador antes de publicar.
+- [ ] **Lote 5 — IA opcional** — Camada explicativa Gemini não foi adicionada; motor determinístico funciona sem ela. Definir limite persistente por usuário antes de habilitar chamadas durante treino.
+- [ ] **Lote 6 — banco real** — Migração aplicada; testar RPC autenticada, limites simultâneos, RLS e integração de OCR/IA.
+- [ ] **Lote 7 — integração** — Migração aplicada; configurar service role privada, testar convites de conta nova/existente e RLS com duas contas e personal.
+- [ ] **Lote 8 — integração** — Testar dois usuários reais e versões concorrentes na prescrição, visualização/execução do aluno, responsividade da tela `/trainer` e fluxo de convite existente.
+- [ ] **Lote 9 — integração** — Testar triggers de notificação, marcação de leitura e feedback com RLS autenticada em Supabase real.
+- [ ] **Lote 10 — integração** — Migração aplicada; conferir index/trigger, pagamento com dois alunos e derivação de atraso em data real.
+- [ ] **Lote 11 — fluxo real** — Testar alteração de senha com/sem exigência de reautenticação e teste de geração Gemini para aluno autorizado em ambiente de homologação.
+
 - [ ] **T6** — Configurar `GEMINI_API_KEY` na Vercel e validar geração real · atende `R7`, `R8` · verifica-se: OCR e plano funcionam em produção.
 - [ ] **T9** — Validar em produção a recuperação de gravações pendentes, conflitos reais e salvamento de plano gerado · atende `R13`, `R14`.
+- [ ] **Publicação em produção** — GitHub App autorizado na conta `IsmaelCaetano`; 14 commits enviados ao branch `fix/batch-1-sync` e PR draft #4 criado. Preview Vercel está Ready e login público carregou. Antes de integrar na `main`, adicionar `SUPABASE_SERVICE_ROLE_KEY` privada à Vercel e validar quotas/convites e permissões com contas distintas. A tela de login na prévia não valida esses fluxos.
 
 ## Anotado durante a implementação
 
@@ -14,6 +27,22 @@ Cada tarefa deve caber em um commit revisável e reversível.
 - [ ] Avaliar persistência de nível e equipamentos no perfil após validar o MVP.
 
 ## Feito
+
+- [x] **Migrações de produção, 2026-09-24** — Aplicados em transações, na ordem, os seis arquivos `202609230001` a `202609240005` no projeto Supabase `personal-fitness`. Antes, criada cópia privada `deployment_backups.fitness_resources_pre_20260924`; depois, 94 registros originais e 94 cópias com conteúdo original igual, 11 tabelas novas com RLS, 22 policies, acesso do papel `authenticated` à cópia negado. SQL Editor não registra essas execuções no histórico formal de migrations; verificar manualmente antes de repetir. Testes com usuários reais continuam pendentes.
+
+- [x] **Lote 3 — código local** — Padrão, região, mecânica e lateralidade opcionais; catálogo ampliado sem alterar IDs antigos; filtro determinístico, equipagem/recusa/override, proteção contra alternativas antigas ruins e IA livre; testes de equivalência. Verificação real pendente.
+- [x] **Lote 4 — código local** — Exportação A4 para rotina e programa, view model puro e teste de histórico/privacidade; verificação visual pendente.
+- [x] **Lote 5 — motor local** — Dica determinística após série, com testes de faixa, RIR, RPE, histórico e exclusões de aquecimento/cardio. Sem camada Gemini opcional.
+- [x] **Lote 6 — auditoria local** — Revisadas rotas existentes, callback interno, logs, limites de IA e OCR; threat model e riscos em `SECURITY.md`. Integração de banco real pendente.
+- [x] **Lote 7 — fundação local** — Tabelas relacionais, grants/RLS, convite Auth Admin, registro trainer e aceitação por e-mail. Sem banco real/teste de e-mail nesta execução.
+- [x] **Lote 8 — código local** — Portal profissional, detalhes do aluno, prescrições com edição CAS, PDF para aluno e execução de prescrição pelo aluno sem alterar a rotina original.
+- [x] **Lote 9 — código local** — Aluno envia feedback/pedido de troca, personal responde e resolve, notificações em app e triggers para eventos principais. Banco real pendente.
+- [x] **Lote 10 — código local** — Aderência pura/UTC, resumo por aluno e controle administrativo de pagamentos e lembretes com índices deduplicadores. Banco real pendente.
+- [x] **Lote 11 — código local** — Perfil retrocompatível com preferências, senha via Supabase e rascunho Gemini para aluno, editável antes de atribuir. Fluxo real pendente.
+
+- [x] **Lote 2 — código local** — Duas gerações de programa/mês UTC, reserva/liberação atômica, retry idempotente, contador e renovação. Testes locais cobrem limite, concorrência, falha, retry e virada do mês. Integração de banco real pendente.
+
+- [x] **Lote 1 — código e regressões** — Falso conflito com edição em trânsito e reutilização de versão após exclusão reproduzidos e corrigidos; diários por aba, retomada offline, CAS e bootstrap protegidos. Especificação documenta cenários A–O e limites dos testes. `pnpm check` final em 2026-09-23: 63/63 testes, tipos/build/gate de segredos aprovados, lint sem erros e com 6 avisos preexistentes. Branch de revisão: `fix/batch-1-sync`. Sem deploy nem aplicação de migração nesta execução.
 
 - [x] **T0** — Remover dados demonstrativos e exigir perfil inicial (`33ddc4a`).
 - [x] **T1** — Validar contratos do gerador, dias, IDs e cardio híbrido (19 testes verdes).
