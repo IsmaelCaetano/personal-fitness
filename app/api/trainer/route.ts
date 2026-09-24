@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import { profileSchema } from '@/lib/fitness/model';
 
 export const dynamic = 'force-dynamic';
 const bodySchema = z.discriminatedUnion('action', [
@@ -20,7 +21,12 @@ export async function GET() {
     supabase.from('trainer_invites').select('id,trainer_id,email,status,expires_at').eq('status', 'pending'),
   ]);
   if (profile.error || students.error || invites.error) return result({ error: 'Configuração de personal ainda não disponível.' }, 503);
-  return result({ profile: profile.data ?? { account_type: 'individual', display_name: '' }, relationships: students.data, invites: invites.data });
+  const names = await Promise.all((students.data ?? []).filter((link) => link.trainer_id === user.id && link.status === 'active').map(async (link) => {
+    const { data } = await supabase.from('fitness_resources').select('payload').eq('user_id', link.student_id).eq('resource','profile').maybeSingle();
+    const parsed = profileSchema.safeParse(data?.payload);
+    return { studentId: link.student_id, name: parsed.success ? parsed.data.name : 'Aluno' };
+  }));
+  return result({ profile: profile.data ?? { account_type: 'individual', display_name: '' }, relationships: students.data, invites: invites.data, names });
 }
 
 export async function POST(request: Request) {
@@ -57,8 +63,10 @@ export async function POST(request: Request) {
     const redirectTo = new URL('/auth/callback?next=%2F', request.url).toString();
     const { error: emailError } = await admin.auth.admin.inviteUserByEmail(body.data.email.toLowerCase(), { redirectTo });
     if (emailError) {
+      if (emailError.code === 'email_exists' || /already registered|already exists/i.test(emailError.message))
+        return result({ id: invite.id, delivery: 'in_app' });
       await admin.from('trainer_invites').update({ status: 'revoked' }).eq('id', invite.id).eq('trainer_id', user.id);
-      return result({ error: 'Não foi possível enviar o convite. Confira o e-mail ou peça ao aluno para entrar na conta existente.' }, 422);
+      return result({ error: 'Não foi possível enviar o convite por e-mail. Tente novamente mais tarde.' }, 422);
     }
     return result({ id: invite.id });
   } catch {

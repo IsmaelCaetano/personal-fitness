@@ -68,7 +68,7 @@ create index payment_records_student_idx on public.payment_records(student_id,re
 
 create or replace function public.is_active_trainer(p_trainer uuid,p_student uuid)
 returns boolean language sql stable security definer set search_path = '' as $$
- select exists(select 1 from public.trainer_students where trainer_id=p_trainer and student_id=p_student and status='active')
+ select (auth.uid()=p_trainer or auth.uid()=p_student) and exists(select 1 from public.trainer_students where trainer_id=p_trainer and student_id=p_student and status='active')
 $$;
 revoke all on function public.is_active_trainer(uuid,uuid) from public,anon;
 grant execute on function public.is_active_trainer(uuid,uuid) to authenticated;
@@ -98,7 +98,7 @@ create policy routine_delete on public.trainer_routines for delete to authentica
 revoke update on public.trainer_routines from authenticated;
 grant update(routine,version,updated_at) on public.trainer_routines to authenticated;
 create policy feedback_read on public.student_feedback for select to authenticated using (student_id=(select auth.uid()) or (trainer_id=(select auth.uid()) and public.is_active_trainer(trainer_id,student_id)));
-create policy feedback_insert on public.student_feedback for insert to authenticated with check (student_id=(select auth.uid()) and public.is_active_trainer(trainer_id,student_id));
+create policy feedback_insert on public.student_feedback for insert to authenticated with check (student_id=(select auth.uid()) and public.is_active_trainer(trainer_id,student_id) and (routine_id is null or exists(select 1 from public.trainer_routines where id=routine_id and trainer_id=student_feedback.trainer_id and student_id=student_feedback.student_id)));
 create policy feedback_update on public.student_feedback for update to authenticated using (trainer_id=(select auth.uid()) and public.is_active_trainer(trainer_id,student_id)) with check (trainer_id=(select auth.uid()) and public.is_active_trainer(trainer_id,student_id));
 revoke update on public.student_feedback from authenticated;
 grant update(response,status,resolved_at) on public.student_feedback to authenticated;
@@ -154,3 +154,5 @@ create policy invite_student_read on public.trainer_invites for select to authen
 -- A linked trainer may read the student's necessary profile and execution history.
 create policy trainer_reads_student_history on public.fitness_resources for select to authenticated
  using (resource in ('profile','session','measurement') and public.is_active_trainer((select auth.uid()),user_id));
+create policy account_select_active_trainer on public.account_profiles for select to authenticated
+ using (public.is_active_trainer(user_id,(select auth.uid())));

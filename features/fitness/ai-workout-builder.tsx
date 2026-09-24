@@ -16,8 +16,8 @@ const styles = [
   { value: "ppl", label: "Push / Pull / Legs" },
 ];
 
-export function AIWorkoutBuilder({ data, exercises, onClose, onSave }: { data: FitnessData; exercises: Exercise[]; onClose: () => void; onSave: (routines: Routine[]) => void }) {
-  const [brief, setBrief] = useState<WorkoutBrief>({ style: "automatico", days: data.profile.weeklyGoal, minutes: 60, experience: "intermediario", equipment: "academia", equipmentNotes: "", cardio: "sem-preferencia", limitations: "", preferences: "" });
+export function AIWorkoutBuilder({ data, exercises, onClose, onSave, studentId }: { data: FitnessData; exercises: Exercise[]; onClose: () => void; onSave: (routines: Routine[]) => void; studentId?: string }) {
+  const [brief, setBrief] = useState<WorkoutBrief>({ style: "automatico", days: data.profile.weeklyGoal, minutes: data.profile.preferredDuration ?? 60, experience: data.profile.level ?? "intermediario", equipment: "academia", equipmentNotes: data.profile.availableEquipment?.join(', ') ?? "", cardio: "sem-preferencia", limitations: data.profile.limitations ?? "", preferences: data.profile.preferences ?? "" });
   const [program, setProgram] = useState<GeneratedProgram | null>(null);
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [busy, setBusy] = useState(false);
@@ -31,7 +31,7 @@ export function AIWorkoutBuilder({ data, exercises, onClose, onSave }: { data: F
     setBusy(true); setError(""); setProgram(null); setRoutines([]);
     try {
       requestId.current ??= crypto.randomUUID();
-      const response = await fetch("/api/ai/workout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ brief,requestId:requestId.current }) });
+      const response = await fetch("/api/ai/workout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ brief,requestId:requestId.current,studentId }) });
       const payload = await response.json() as GeneratedProgram & { error?: string;used?:number;limit?:number;renewsAt?:string };
       if (!response.ok){if(payload.used!==undefined&&payload.limit&&payload.renewsAt)setQuota({used:payload.used,limit:payload.limit,renewsAt:payload.renewsAt});if([409,422,429].includes(response.status))requestId.current=null;throw new Error(payload.error ?? "Não foi possível gerar o treino.");}
       const parsed = generatedProgramSchema.parse(payload);
@@ -71,7 +71,7 @@ export function AIWorkoutBuilder({ data, exercises, onClose, onSave }: { data: F
       <section className="ai-progression"><strong>Como evoluir</strong><ul>{program.progression.map((item) => <li key={item}>{item}</li>)}</ul></section>
       {!!program.warnings.length && <section className="ai-warnings"><strong><ShieldAlert size={16}/>Cuidados</strong><ul>{program.warnings.map((item) => <li key={item}>{item}</li>)}</ul></section>}
       {error && <p className="ai-error" role="alert">{error}</p>}
-      <div className="form-actions"><button className="secondary" onClick={() => { setProgram(null); setRoutines([]); }}>Ajustar respostas</button><button className="secondary" disabled={busy} onClick={() => void generate()}><RefreshCw size={16}/>Gerar outra versão</button><button className="primary" onClick={() => { onSave(routines); toast.success(`${routines.length} rotina(s) adicionada(s)`); }}><Check size={17}/>Salvar plano</button></div>
+      <div className="form-actions"><button className="secondary" onClick={() => { setProgram(null); setRoutines([]); }}>Ajustar respostas</button><button className="secondary" disabled={busy} onClick={() => void generate()}><RefreshCw size={16}/>Gerar outra versão</button><button className="primary" onClick={() => { onSave(routines); toast.success(studentId?'Rascunhos preparados para revisão':`${routines.length} rotina(s) adicionada(s)`); }}><Check size={17}/>{studentId?'Revisar rascunhos':'Salvar plano'}</button></div>
     </div>}
   </Modal>;
 }

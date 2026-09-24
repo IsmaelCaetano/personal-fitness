@@ -421,7 +421,7 @@ export function Routines({
     </>
   );
 }
-function RoutineEditor({
+export function RoutineEditor({
   routine,
   exercises,
   defaultRest,
@@ -646,6 +646,11 @@ function RoutineEditor({
                   <strong>Exercícios alternativos</strong>
                   <span>Você poderá trocar apenas no treino do dia.</span>
                 </div>
+                <Choice label="Regra de substituição" value={p.substitutionRule ?? 'automatic'} onChange={(rule) => changePlan(p.id, { substitutionRule: rule as Plan['substitutionRule'] })} options={[
+                  { value: 'automatic', label: 'Equivalentes automáticos' },
+                  { value: 'approved', label: 'Somente alternativas aprovadas' },
+                  { value: 'blocked', label: 'Não permitir substituição' },
+                ]} />
                 {p.alternativeExerciseIds?.length ? (
                   <div className="alternative-chips">
                     {p.alternativeExerciseIds.map((id) => (
