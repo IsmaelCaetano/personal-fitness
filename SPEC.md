@@ -137,6 +137,12 @@ Falhas de autenticação ou RLS podem expor dados entre usuários e são crític
 - Regras puras usam alvo de repetições, resultado e esforço (RIR/RPE) para orientar progressão conservadora após cada série concluída. Séries de aquecimento, etapas de duração e registros pendentes não geram dica de carga. Sem histórico, a mensagem estabelece uma linha de base.
 - Camada explicativa por Gemini é opcional e não é chamada por série; qualquer integração posterior precisa de limite de requisições persistido e fallback para estas regras.
 
+## Auditoria de segurança — Lote 6
+
+- Rotas existentes exigem sessão e origem para mutações; payloads têm limites e validação. Callback de autenticação só aceita redirecionamento local. Erros de persistência e OCR não registram exceções com possíveis dados da conta.
+- `api_rate_limits` contém janelas por conta e operação. A RPC usa `auth.uid()` internamente e operações/tetos fixos; OCR e gerador retornam 429 ao atingir teto, 503 se migração ausente.
+- `SECURITY.md` descreve ameaças, controles, migrações e verificações pendentes. RLS e funções SQL ainda precisam de testes contra Postgres real antes de deploy.
+
 
 ## Quota de IA — Lote 2
 

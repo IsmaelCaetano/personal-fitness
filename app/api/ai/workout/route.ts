@@ -64,6 +64,9 @@ export async function POST(request: Request) {
   const origin = request.headers.get("origin");
   if (origin && origin !== new URL(request.url).origin) return Response.json({ error: "Origem inválida." }, { status: 403 });
   try {
+    const limit = await supabase.rpc('consume_api_rate_limit', { p_operation: 'workout_generation' });
+    if (limit.error) return Response.json({ error: 'Geração indisponível no momento.' }, { status: 503 });
+    if (!limit.data) return Response.json({ error: 'Muitas tentativas. Tente novamente em uma hora.' }, { status: 429 });
     const raw = await request.text();
     if (raw.length > 8000) return Response.json({ error: "Dados muito grandes." }, { status: 413 });
     const parsed = requestSchema.safeParse(JSON.parse(raw));
