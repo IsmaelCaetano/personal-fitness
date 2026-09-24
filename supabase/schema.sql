@@ -5,8 +5,12 @@ create table if not exists public.fitness_resources (
   payload jsonb not null,
   version bigint not null default 1 check (version > 0),
   updated_at timestamptz not null default now(),
+  deleted_at timestamptz,
   primary key (user_id, id)
 );
+
+-- For existing installations use the versioned migration before deploying code.
+alter table public.fitness_resources add column if not exists deleted_at timestamptz;
 
 alter table public.fitness_resources enable row level security;
 
