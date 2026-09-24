@@ -150,6 +150,29 @@ Falhas de autenticação ou RLS podem expor dados entre usuários e são crític
 - Convite exige personal autenticado, rate limit e service role no servidor para `inviteUserByEmail`. Aceitação exige usuário Auth com o mesmo e-mail, convite pendente e prazo de sete dias; associação é feita em RPC, sem `student_id` fornecido pelo navegador. Alunos antigos mantêm dados mesmo depois de encerrar vínculo.
 - Políticas vetam escrita estrutural de prescrições pelo aluno e leitura de outro aluno. Ex-aluno deixa de aparecer no acesso ativo. É necessário validar RLS com contas reais após migrar.
 
+## Acompanhamento e atribuição — Lote 8
+
+- `/trainer` permite escolher conta profissional, convidar, aceitar convite recebido, abrir aluno ativo, ver objetivo/histórico, atribuir ou editar rotina e baixar PDF. Editor de rotina existente é reutilizado. A prescrição guarda versão e escrita CAS; consulta ao aluno exige vínculo ativo, além da RLS.
+- O aluno vê prescrições ativas em Hoje, pode visualizar e executar; séries e histórico são gravados somente em sua própria conta. `trainer_routines` não permite edição estrutural pelo aluno. Durante vínculo, prescrições aparecem antes do painel individual; rotinas anteriores não são apagadas.
+- A regra da prescrição controla substituições: automática, somente IDs aprovados ou bloqueada. É aplicada na visualização e no treino, inclusive quando há alternativas antigas persistidas.
+
+## Feedback e notificações — Lote 9
+
+- Aluno vinculado envia comentário, pedido de troca, equipamento indisponível, dificuldade ou desconforto. Servidor valida vínculo ativo, limite por hora e, quando informado, que a prescrição pertence ao mesmo vínculo. Personal responde e resolve apenas feedback de seu aluno ativo.
+- Triggers de banco criam notificações para feedback, resposta, ativação do vínculo e atribuição/edição de treino; a lista e marcação de leitura pertencem só ao usuário autenticado. Solicitação de outra opção aparece dentro do treino prescrito.
+- Desconforto é tratado como relato, sem diagnóstico. Notificações de pagamento são descritas no lote administrativo seguinte.
+
+## Constância e pagamentos — Lote 10
+
+- Métricas em UTC: últimos 7/30 dias contam sessões concluídas e não demonstrativas; planejado são pares (rotina, data) que caem nos dias de agenda nos últimos sete dias; concluído planejado conta cada par no máximo uma vez; aderência é concluído/planejado × 100, ou sem percentual quando não há agenda; sequência semanal conta semanas consecutivas com ao menos um treino.
+- Mensalidade é apenas registro administrativo, sem Pix, Stripe ou cartão. Personal ativo cria/atualiza mês, valor, vencimento, status e observação. Atrasado deriva de pendente com vencimento anterior à data atual. Notificações de proximidade/atraso são geradas uma vez por registro quando a conta consulta notificações.
+
+## Perfil e senha — Lote 11
+
+- Campos opcionais novos preservam perfis antigos: nível, duração, dias, equipamentos, preferências e limitações. O gerador usa esses dados do próprio atleta/aluno autorizado e mostra que enviará conteúdo ao Gemini.
+- Senha é atualizada via Supabase Auth; mínimo de oito caracteres, confirmação local, senha atual e nonce de reautenticação quando exigidos pelo provedor. Nenhuma senha é guardada em `fitness_resources`.
+- No modo trainer, Gemini usa apenas perfil/histórico do aluno vinculado após validação explícita; request ID é vinculado ao sujeito e ao pedido para retry sem reutilizar plano de outro aluno. O personal revisa, edita o rascunho e decide atribuir.
+
 
 ## Quota de IA — Lote 2
 

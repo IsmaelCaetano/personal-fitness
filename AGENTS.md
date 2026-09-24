@@ -41,6 +41,8 @@ Antes de relatar que funciona, rode `pnpm check`. Se não puder, diga exatamente
 - `lib/fitness/import.ts`: parser determinístico de texto/JSON; identifica dia/turno, atividades na sessão, descanso e cargas por série. Mantenha os `base-*` existentes estáveis ao estender a biblioteca.
 - `lib/fitness/seed.ts`: biblioteca estática e estado vazio de novas contas.
 - `supabase/schema.sql`: tabela e RLS.
+- `supabase/migrations/`: aplicar em ordem em banco existente; nunca usar `schema.sql` como migração. Quota e convite usam `SUPABASE_SERVICE_ROLE_KEY` apenas no servidor.
+- `app/api/trainer/`: endpoints com vínculo ativo validado no servidor e RLS no banco. Aluno grava execução na própria conta; prescrições do personal ficam em `trainer_routines`.
 - `tests/`: testes de domínio e importação.
 
 ## Convenções

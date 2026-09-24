@@ -215,7 +215,7 @@ create index payment_records_student_idx on public.payment_records(student_id,re
 
 create or replace function public.is_active_trainer(p_trainer uuid,p_student uuid)
 returns boolean language sql stable security definer set search_path = '' as $$
- select exists(select 1 from public.trainer_students where trainer_id=p_trainer and student_id=p_student and status='active')
+ select (auth.uid()=p_trainer or auth.uid()=p_student) and exists(select 1 from public.trainer_students where trainer_id=p_trainer and student_id=p_student and status='active')
 $$;
 revoke all on function public.is_active_trainer(uuid,uuid) from public,anon;
 grant execute on function public.is_active_trainer(uuid,uuid) to authenticated;
@@ -245,7 +245,7 @@ create policy routine_delete on public.trainer_routines for delete to authentica
 revoke update on public.trainer_routines from authenticated;
 grant update(routine,version,updated_at) on public.trainer_routines to authenticated;
 create policy feedback_read on public.student_feedback for select to authenticated using (student_id=(select auth.uid()) or (trainer_id=(select auth.uid()) and public.is_active_trainer(trainer_id,student_id)));
-create policy feedback_insert on public.student_feedback for insert to authenticated with check (student_id=(select auth.uid()) and public.is_active_trainer(trainer_id,student_id));
+create policy feedback_insert on public.student_feedback for insert to authenticated with check (student_id=(select auth.uid()) and public.is_active_trainer(trainer_id,student_id) and (routine_id is null or exists(select 1 from public.trainer_routines where id=routine_id and trainer_id=student_feedback.trainer_id and student_id=student_feedback.student_id)));
 create policy feedback_update on public.student_feedback for update to authenticated using (trainer_id=(select auth.uid()) and public.is_active_trainer(trainer_id,student_id)) with check (trainer_id=(select auth.uid()) and public.is_active_trainer(trainer_id,student_id));
 revoke update on public.student_feedback from authenticated;
 grant update(response,status,resolved_at) on public.student_feedback to authenticated;
@@ -296,3 +296,72 @@ create policy invite_student_read on public.trainer_invites for select to authen
  using (status='pending' and expires_at>now() and lower(email)=(select lower(auth.jwt()->>'email')));
 create policy trainer_reads_student_history on public.fitness_resources for select to authenticated
  using (resource in ('profile','session','measurement') and public.is_active_trainer((select auth.uid()),user_id));
+create policy account_select_active_trainer on public.account_profiles for select to authenticated
+ using (public.is_active_trainer(user_id,(select auth.uid())));
+-- Notifications follow feedback creation and reply atomically.
+create or replace function public.notify_student_feedback()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+ if tg_op='INSERT' then
+   insert into public.notifications(user_id,type,title,body,metadata)
+   values(new.trainer_id,case when new.category='replacement' then 'replacement_request' else 'feedback' end,
+     'Novo feedback do aluno',left(new.message,240),pg_catalog.jsonb_build_object('feedbackId',new.id));
+ elsif tg_op='UPDATE' and (new.response is distinct from old.response or new.status is distinct from old.status) then
+   insert into public.notifications(user_id,type,title,body,metadata)
+   values(new.student_id,'feedback_response','Seu personal respondeu ao feedback',
+     left(coalesce(new.response,'Feedback resolvido'),240),pg_catalog.jsonb_build_object('feedbackId',new.id));
+ end if;
+ return new;
+end; $$;
+create trigger feedback_notification_insert after insert on public.student_feedback
+ for each row execute function public.notify_student_feedback();
+create trigger feedback_notification_update after update of response,status on public.student_feedback
+ for each row execute function public.notify_student_feedback();
+create or replace function public.notify_trainer_routine()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+ insert into public.notifications(user_id,type,title,body,metadata)
+ values(new.student_id,'trainer_plan',
+  case when tg_op='INSERT' then 'Novo treino atribuído' else 'Seu personal alterou um treino' end,
+  left(coalesce(new.routine->>'name','Treino'),240),pg_catalog.jsonb_build_object('assignmentId',new.id));
+ return new;
+end; $$;
+create trigger trainer_routine_notify_insert after insert on public.trainer_routines
+ for each row execute function public.notify_trainer_routine();
+create trigger trainer_routine_notify_update after update of routine on public.trainer_routines
+ for each row when (new.routine is distinct from old.routine) execute function public.notify_trainer_routine();
+create or replace function public.notify_new_student()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+ if new.status='active' and (tg_op='INSERT' or old.status is distinct from new.status) then
+  insert into public.notifications(user_id,type,title,body,metadata)
+  values(new.student_id,'invite_accepted','Acompanhamento iniciado','Seu personal agora pode atribuir treinos.',pg_catalog.jsonb_build_object('relationshipId',new.id));
+  insert into public.notifications(user_id,type,title,body,metadata)
+  values(new.trainer_id,'invite_accepted','Aluno aceitou o convite','O vínculo está ativo.',pg_catalog.jsonb_build_object('relationshipId',new.id));
+ end if;
+ return new;
+end; $$;
+create trigger trainer_student_notify_insert after insert on public.trainer_students
+ for each row execute function public.notify_new_student();
+create trigger trainer_student_notify_update after update of status on public.trainer_students
+ for each row execute function public.notify_new_student();
+create unique index notifications_payment_reminder_once_idx on public.notifications(user_id,type,(metadata->>'paymentId')) where type in ('payment_due','payment_overdue');
+create or replace function public.refresh_payment_reminders()
+returns void language plpgsql security definer set search_path = '' as $$
+declare v_user uuid := auth.uid(); p record;
+begin
+ if v_user is null then raise exception 'AUTH_REQUIRED'; end if;
+ for p in select id,reference_month,due_date from public.payment_records
+  where (student_id=v_user or trainer_id=v_user) and status='pending' and due_date<=current_date+7
+  order by due_date desc limit 50
+ loop
+  insert into public.notifications(user_id,type,title,body,metadata)
+   values(v_user,case when p.due_date<current_date then 'payment_overdue' else 'payment_due' end,
+    case when p.due_date<current_date then 'Pagamento atrasado' else 'Pagamento próximo' end,
+    'Referência '||to_char(p.reference_month,'MM/YYYY')||' · vencimento '||to_char(p.due_date,'DD/MM/YYYY'),
+    pg_catalog.jsonb_build_object('paymentId',p.id))
+   on conflict do nothing;
+ end loop;
+end; $$;
+revoke all on function public.refresh_payment_reminders() from public,anon;
+grant execute on function public.refresh_payment_reminders() to authenticated;

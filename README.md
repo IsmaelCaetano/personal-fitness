@@ -30,6 +30,8 @@ MVP multiusuário para planejar musculação, corrida e treino híbrido, registr
 | Substituições equivalentes | `lib/fitness/recommendations.ts`, `features/fitness/workout.tsx` |
 | PDF de rotina e programa | `lib/fitness/pdf.ts`, `features/fitness/routine-preview.tsx` |
 | Personal e alunos | `app/api/trainer/`, `supabase/migrations/202609240003_trainer_foundation.sql` |
+| Portal do personal | `/trainer`, `features/fitness/trainer-portal.tsx` |
+| Constância e pagamentos | `lib/fitness/adherence.ts`, `app/api/trainer/payments/route.ts` |
 | Histórico e progresso | `features/fitness/history.tsx`, `features/fitness/progress.tsx` |
 
 ## Configuração local
@@ -82,10 +84,16 @@ O cache antigo é migrado automaticamente. Ao atualizar, recarregue as abas anti
 
 O gerador permite duas criações por mês UTC por conta gratuita. Importar, OCR, editar e criar manualmente não consomem quota. Em instalações existentes aplique `supabase/migrations/202609240001_ai_usage.sql` depois da migration do lote 1 e configure `SUPABASE_SERVICE_ROLE_KEY` apenas no servidor, antes de publicar a rota. Retries usam ID estável para recuperar o mesmo programa; a resposta inválida do Gemini libera a reserva.
 
+### Modo personal
+
+O modo individual permanece disponível sem personal. Em `/trainer`, um profissional pode ativar seu perfil, convidar alunos, prescrever rotinas, acompanhar treinos e feedbacks e controlar mensalidades sem processar pagamentos. O aluno aceita convites no aplicativo, executa as prescrições e mantém seu histórico individual. Convite de conta já existente fica disponível no app se o Supabase recusar o e-mail de convite. A geração de rascunhos com IA usa o perfil do aluno vinculado e exige revisão/atribuição manual.
+
+Em banco existente, aplique **na ordem** as migrations `202609230001` (sync), `202609240001` (quota), `202609240002` (limites), `202609240003` (relações e RLS), `202609240004` (notificações) e `202609240005` (lembretes). No projeto de produção `personal-fitness` elas já foram executadas via SQL Editor em 2026-09-24; a ferramenta não as registrou na tabela formal de migrations. Confira o estado antes de executar novamente. Não execute `schema.sql` em banco existente: ele serve apenas para recriar um banco novo. Configure `SUPABASE_SERVICE_ROLE_KEY` somente em funções server-side na Vercel para quota e convite. `GEMINI_API_KEY` também permanece privada.
+
 ## Publicação
 
 O repositório GitHub está conectado à Vercel. Faça um commit coerente em `main`, aguarde o deploy ficar `Ready` e execute um smoke test sem usar dados sensíveis.
 
 No projeto Vercel, abra **Settings → Environment Variables** e crie `GEMINI_API_KEY` como variável privada de **Production** (e Preview, se necessário). Copie o valor de [Google AI Studio — API Keys](https://aistudio.google.com/app/apikey), sem colocá-lo no GitHub nem prefixá-lo com `NEXT_PUBLIC_`. Após adicioná-lo, faça um novo deploy para que as funções de IA recebam a variável. Sem a chave, o gerador e o leitor de fotos mostram um erro claro; o restante do aplicativo continua funcionando.
 
-O banco usa uma tabela JSONB versionada por usuário. As políticas RLS garantem que cada pessoa só consiga ler e alterar os próprios registros.
+O treino individual usa JSONB versionado por conta; quotas, vínculos, feedbacks, notificações, prescrições e mensalidades usam tabelas relacionais. RLS restringe acesso à própria conta e concede ao personal ativo apenas os dados necessários do aluno vinculado. Veja `SECURITY.md` para controles e limites da validação.
