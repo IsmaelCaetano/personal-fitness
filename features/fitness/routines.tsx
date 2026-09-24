@@ -47,7 +47,7 @@ import { AIWorkoutBuilder } from "./ai-workout-builder";
 import { library } from "@/lib/fitness/seed";
 import { Choice, Modal, Confirm, EmptyState } from "./shared";
 import type { FitnessStore } from "./use-fitness";
-import { suggestAlternativeExerciseIds } from "@/lib/fitness/recommendations";
+import { suggestAlternativeExerciseIds, rankExerciseAlternatives } from "@/lib/fitness/recommendations";
 const muscles = [
   "Peito",
   "Costas",
@@ -663,11 +663,7 @@ function RoutineEditor({
                   </div>
                 ) : null}
                 <Combobox<Exercise>
-                  items={exercises.filter(
-                    (e) =>
-                      e.id !== p.exerciseId &&
-                      !p.alternativeExerciseIds?.includes(e.id),
-                  )}
+                  items={rankExerciseAlternatives(p.exerciseId, exercises).map(({ exercise }) => exercise).filter((e) => !p.alternativeExerciseIds?.includes(e.id))}
                   itemToStringLabel={(e) => e.name}
                   value={null}
                   onValueChange={(exercise) => {

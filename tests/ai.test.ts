@@ -22,11 +22,12 @@ test("plan is rejected when it ignores weekly availability or hybrid cardio", ()
   assert.match(validateGeneratedProgram({ ...program, routines: [program.routines[0]] }, { ...brief, days: 1 }, library) ?? "", /cardiovascular/);
 });
 
-test("unknown exercise and unrelated substitution cannot enter generated plan", () => {
+test("unknown exercise is rejected and AI-suggested alternatives never bypass deterministic filter", () => {
   const wrongExercise = { ...program, routines: [{ ...program.routines[0], exercises: [{ ...program.routines[0].exercises[0], exerciseId: "outside" }] }, program.routines[1]] };
   assert.match(validateGeneratedProgram(wrongExercise, brief, library) ?? "", /inválidos/);
   const wrongAlternative = { ...program, routines: [{ ...program.routines[0], exercises: [{ ...program.routines[0].exercises[0], alternativeExerciseIds: ["base-0"] }] }, program.routines[1]] };
-  assert.match(validateGeneratedProgram(wrongAlternative, brief, library) ?? "", /inválidos/);
+  assert.equal(validateGeneratedProgram(wrongAlternative, brief, library), null);
+  assert(!compileGeneratedProgram(wrongAlternative, library)[0].exercises[0].alternativeExerciseIds?.includes("base-0"));
   const compiled = compileGeneratedProgram(program, library);
   assert.equal(compiled[1].exercises[0].targetType, "minutes");
   assert.equal(compiled[0].exercises[0].suggestedWeight, null);

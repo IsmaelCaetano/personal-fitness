@@ -120,6 +120,14 @@ Falhas de autenticação ou RLS podem expor dados entre usuários e são crític
 
 ## Em aberto
 
+## Substituições equivalentes — Lote 3
+
+- O catálogo mantém todos os IDs `base-*` originais e acrescenta variantes ao final. Campos opcionais de movimento, região, mecânica e lateralidade aceitam perfis antigos; exercícios sem classificação segura não recebem sugestões automáticas.
+- Uma substituição automática exige o mesmo padrão de movimento, região alvo e mecânica. Equipamentos indisponíveis, alternativas recusadas e candidatas fora da lista aprovada pelo treinador são removidos. Uma lista vazia é aceitável; conteúdo já salvo incompatível também é filtrado na execução.
+- Alternativas sugeridas pela IA são ignoradas. O servidor gera opções usando o filtro determinístico depois de validar o programa; nunca pede à IA que escolha livremente pelo músculo.
+- O motivo de recusa do usuário fica opcionalmente no próprio perfil e só afeta a relação entre exercício principal e alternativa, sem alterar a biblioteca global.
+
+
 ## Quota de IA — Lote 2
 
 - Somente a criação de programas pela IA conta: duas solicitações bem-sucedidas por mês calendário UTC para a conta individual gratuita. Edição, importação, OCR e treino manual continuam sem quota de geração.

@@ -382,6 +382,7 @@ export function FitnessApp({ uid, email }: { uid: string; email: string }) {
                     session={active}
                     data={data}
                     onChange={(s) => mutate("session", s)}
+                    onProfileChange={(profile) => mutate("profile", profile)}
                     onFinish={finishSession}
                     onBack={() => navigate("today")}
                   />

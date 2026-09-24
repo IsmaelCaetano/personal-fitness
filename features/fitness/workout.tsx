@@ -20,6 +20,7 @@ import type {
   Session,
   WorkoutSet,
   SessionExercise,
+  Profile,
 } from "@/lib/fitness/model";
 import { newId } from "@/lib/fitness/model";
 import {
@@ -45,12 +46,14 @@ export function Workout({
   onChange,
   onFinish,
   onBack,
+  onProfileChange,
 }: {
   session: Session;
   data: FitnessData;
   onChange: (s: Session) => void;
   onFinish: (s: Session) => void;
   onBack: () => void;
+  onProfileChange: (profile: Profile) => void;
 }) {
   const [now, setNow] = useState(currentTimestamp);
   const [finish, setFinish] = useState(false);
@@ -174,7 +177,7 @@ export function Workout({
         value={all ? (done / all) * 100 : 0}
         aria-label="Séries concluídas"
       />
-      <WorkoutSubstitutions session={session} data={data} onChange={onChange} />
+      <WorkoutSubstitutions session={session} data={data} onChange={onChange} onProfileChange={onProfileChange} />
       <div className="session-exercises">
         {session.exercises.map((e, i) => {
           const past = getPreviousExercisePerformance(
@@ -623,11 +626,14 @@ function WorkoutSubstitutions({
   session,
   data,
   onChange,
+  onProfileChange,
 }: {
   session: Session;
   data: FitnessData;
   onChange: (s: Session) => void;
+  onProfileChange: (profile: Profile) => void;
 }) {
+  const [rejectionReason, setRejectionReason] = useState<NonNullable<Profile['rejectedAlternatives']>[number]['reason']>('equipment');
   const exercises = [...library, ...data.exercises];
   const entries = session.exercises
     .map((entry) => ({
@@ -636,6 +642,7 @@ function WorkoutSubstitutions({
         entry.plan.exerciseId,
         entry.plan.alternativeExerciseIds,
         exercises,
+        { excludedIds: data.profile.rejectedAlternatives?.filter((item) => item.sourceId === entry.plan.exerciseId).map((item) => item.candidateId) },
       ),
     }))
     .filter((item) => item.alternativeIds.length);
@@ -687,7 +694,7 @@ function WorkoutSubstitutions({
         <div>
           <h2>Substituições automáticas</h2>
           <p>
-            Sugestões do mesmo grupo muscular e com equipamentos compatíveis.
+            Sugestões com o mesmo padrão de movimento e região alvo.
             Troque antes da primeira série; a rotina original não muda.
           </p>
         </div>
@@ -713,10 +720,24 @@ function WorkoutSubstitutions({
                   onChange={(id) => swap(entry, id)}
                   options={ids.map((id) => ({
                     value: id,
-                    label:
-                      exercises.find((e) => e.id === id)?.name ?? "Exercício",
+                    label: `${exercises.find((e) => e.id === id)?.name ?? "Exercício"} · ${exercises.find((e) => e.id === id)?.equipment ?? ''}`,
                   }))}
                 />
+              )}
+              {!locked && entry.exercise.id !== entry.plan.exerciseId && (
+                <div>
+                  <Choice label="Motivo para recusar" value={rejectionReason} onChange={(reason) => setRejectionReason(reason as typeof rejectionReason)} options={[
+                    { value: 'equipment', label: 'Não tenho equipamento' },
+                    { value: 'discomfort', label: 'Desconfortável' },
+                    { value: 'dislike', label: 'Não gosto' },
+                    { value: 'cannot', label: 'Não consigo executar' },
+                    { value: 'other', label: 'Outro' },
+                  ]} />
+                  <button className="text-button" type="button" onClick={() => {
+                    onProfileChange({ ...data.profile, rejectedAlternatives: [...(data.profile.rejectedAlternatives ?? []).filter((item) => item.sourceId !== entry.plan.exerciseId || item.candidateId !== entry.exercise.id), { sourceId: entry.plan.exerciseId, candidateId: entry.exercise.id, reason: rejectionReason }].slice(-100) });
+                    swap(entry, entry.plan.exerciseId);
+                  }}>Não quero esta opção</button>
+                </div>
               )}
             </label>
           );

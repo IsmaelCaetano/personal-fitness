@@ -27,6 +27,7 @@ MVP multiusuário para planejar musculação, corrida e treino híbrido, registr
 | Contratos persistidos | `lib/fitness/model.ts` |
 | Rotinas e importação | `features/fitness/routines.tsx`, `features/fitness/import-workout.tsx` |
 | IA e OCR | `app/api/ai/`, `lib/fitness/ai.ts`, `lib/fitness/gemini.ts` |
+| Substituições equivalentes | `lib/fitness/recommendations.ts`, `features/fitness/workout.tsx` |
 | Histórico e progresso | `features/fitness/history.tsx`, `features/fitness/progress.tsx` |
 
 ## Configuração local

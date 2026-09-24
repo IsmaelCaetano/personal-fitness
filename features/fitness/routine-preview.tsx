@@ -79,6 +79,7 @@ export function RoutinePreview({
             plan.exerciseId,
             plan.alternativeExerciseIds,
             exercises,
+            { excludedIds: data.profile.rejectedAlternatives?.filter((item) => item.sourceId === plan.exerciseId).map((item) => item.candidateId) },
           );
           return (
             <article className="preview-exercise card" key={plan.id}>
@@ -125,7 +126,7 @@ export function RoutinePreview({
                     ]}
                   />
                   <p>
-                    Compatíveis com o mesmo grupo muscular. A troca vale só para
+                    Mesmo padrão de movimento e região alvo. A troca vale só para
                     hoje.
                   </p>
                 </div>
