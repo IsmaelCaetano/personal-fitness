@@ -6,7 +6,6 @@ import { studentIntakeSchema } from '@/lib/fitness/student-intake';
 
 export const dynamic = 'force-dynamic';
 const bodySchema = z.discriminatedUnion('action', [
-  z.object({ action: z.literal('register'), displayName: z.string().trim().min(1).max(80) }),
   z.object({ action: z.literal('invite'), email: z.string().trim().email().max(255), studentName: z.string().trim().min(1).max(80), intake: studentIntakeSchema }),
   z.object({ action: z.literal('accept'), inviteId: z.string().uuid() }),
 ]);
@@ -41,10 +40,6 @@ export async function POST(request: Request) {
     if (raw.length > 4500) return result({ error: 'Dados muito grandes.' }, 413);
     const body = bodySchema.safeParse(JSON.parse(raw));
     if (!body.success) return result({ error: 'Confira os dados.' }, 400);
-    if (body.data.action === 'register') {
-      const { data, error } = await supabase.rpc('register_trainer', { p_display_name: body.data.displayName });
-      return error || !data ? result({ error: 'Não foi possível ativar o modo personal.' }, 503) : result({ ok: true });
-    }
     if (body.data.action === 'accept') {
       const { data, error } = await supabase.rpc('accept_trainer_invite', { p_invite_id: body.data.inviteId });
       return error ? result({ error: 'Não foi possível aceitar o convite.' }, 503) : data ? result({ ok: true }) : result({ error: 'Convite expirado, já utilizado ou enviado a outro e-mail.' }, 403);

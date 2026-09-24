@@ -89,6 +89,7 @@ Antes de relatar que funciona, rode `pnpm check`. Se não puder, diga exatamente
 - **Uma chave local compartilhada entre abas perde filas.** Usar os diários de `sync-cache.ts` e Web Locks; nunca escrever diretamente na fila legada. Dados ilegíveis devem ser preservados, não substituídos por array vazio.
 - **Excluir/recriar não pode reiniciar `version`.** Preservar marcador `deleted_at` com payload vazio; aplicar a migração versionada antes do deploy. Não remover marcadores em rollback nem ignorar `deletedIds` na reconciliação.
 - **Bootstrap não pode atualizar perfil existente.** Criar com `ignoreDuplicates: true` e reler todos os recursos; não usar o retorno do insert como snapshot completo.
+- **Papel da conta é fixado no INSERT Auth.** Nunca reintroduza uma RPC de promoção, nem determine papel por metadata alterada após o cadastro. Convidados pelo personal nascem individuais; preserve contas antigas sem `account_profiles` como individuais até aceitarem um convite.
 - **Resultado Gemini pode ser JSON válido e semanticamente ruim.** Sempre compilar contra a biblioteca e o `routineSchema`.
 - **Quota de IA fica em tabelas relacionais e RPCs de serviço.** Sem chave service role privada ou migração `202609240001_ai_usage.sql`, o gerador falha fechado; não devolver resposta de plano cuja confirmação no banco falhou.
 - **HEIC pode chegar com MIME vazio ou variável.** Validar extensão e normalizar antes da API.

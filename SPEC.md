@@ -7,7 +7,7 @@ Pessoas que treinam musculação, corrida ou atividades híbridas precisam organ
 ## Sucesso
 
 - [ ] Cada conta acessa somente os próprios dados e inicia sem registros fictícios.
-- [ ] Um novo usuário informa altura, peso, objetivo e dias de treino antes de abrir o painel.
+- [ ] Uma nova conta individual informa altura, peso, objetivo e dias de treino; a ficha do aluno convidado é preenchida antes pelo personal.
 - [ ] O usuário cria, importa, revisa, edita, exclui, escolhe e executa rotinas.
 - [ ] A IA gera um plano revisável a partir do perfil e das preferências da conta, sem salvar automaticamente.
 - [ ] Uma imagem de ficha é transcrita para texto revisável antes da importação.
@@ -41,7 +41,7 @@ Pessoas que treinam musculação, corrida ou atividades híbridas precisam organ
 |---|---|---|
 | R1 | Toda leitura e escrita persistida deve estar vinculada ao usuário autenticado. | Requisições sem sessão retornam 401; políticas RLS impedem acesso cruzado. |
 | R2 | Nova conta deve começar com rotinas, sessões e medidas vazias. | `initialData()` retorna coleções vazias e teste de contrato confirma. |
-| R3 | Onboarding exige altura de 80–250 cm, peso de 20–500 kg, ao menos um objetivo e frequência de 1–7 dias. | Schema e teste de UI/API rejeitam valores fora da faixa. |
+| R3 | Conta individual completa o onboarding com altura de 80–250 cm, peso de 20–500 kg, ao menos um objetivo e frequência de 1–7 dias; para aluno convidado, o personal preenche os mesmos dados antes do convite. | Schema rejeita valores fora da faixa; aluno convidado com ficha validada entra direto no painel após definir senha. |
 | R4 | Perfil deve permitir alterar objetivos, medidas, unidade, descanso e meta semanal. | Alteração persiste e reaparece após recarregar. |
 | R5 | Rotina deve aceitar até 40 itens com séries, alvo, descanso, notas e alternativas. | `routineSchema` valida entrada e rejeita principal como alternativa. |
 | R6 | Importação por texto/JSON deve produzir uma etapa de revisão e nunca persistir diretamente. | Parser retorna rascunhos; somente “Importar” chama `mutate`. |
@@ -59,7 +59,7 @@ Pessoas que treinam musculação, corrida ou atividades híbridas precisam organ
 | R18 | A fila é recuperada antes de qualquer leitura de rede e abas não sobrescrevem os rascunhos umas das outras. | Abertura offline, reconexão, duas abas e recuperação de diário abandonado são cobertas por testes. |
 | R19 | A versão de um ID nunca reinicia depois de excluir/restaurar; inicializar a conta não sobrescreve perfil nem oculta recursos existentes. | Testes de exclusão/restauração rejeitam escrita de dispositivo antigo; criação concorrente do perfil usa `ON CONFLICT DO NOTHING`. |
 | R20 | Cada conta individual tem duas gerações de programa por IA por mês calendário UTC. Importações, OCR, edição e treino manual não consomem quota. | Reserva e conclusão transacionais por usuário e ID de requisição; falha libera reserva; retry retorna mesmo plano válido. |
-| R21 | Cadastro permite escolher modo individual ou personal; a opção personal ativa o perfil profissional após autenticação verificada, sem alterar contas existentes. | Após confirmar o e-mail, o personal entra no portal sem precisar ativar modo manualmente; alterações em metadata não dão acesso sem a RPC autenticada. |
+| R21 | Cadastro público permite criar conta individual ou de personal, e o tipo fica definido no instante em que a conta Auth é criada. Conta individual existente nunca pode se promover a personal pela interface, RPC, metadata editável ou request direto. | Trigger no INSERT de `auth.users` cria o tipo de conta; função antiga de promoção é removida e permissões de escrita impedem mudar `account_type`. Novo personal entra no portal após confirmar o e-mail, e aluno convidado nasce individual. |
 | R22 | Personal preenche a ficha do aluno (nome, e-mail, altura, peso, objetivo, frequência, experiência, disponibilidade e preferências) antes do convite; o aluno novo só define a própria senha. | Aceitação por e-mail verificado cria a ficha e o vínculo na mesma transação; aluno novo entra sem questionário. Convite antigo sem ficha mantém o fluxo anterior e conta individual existente preserva histórico e perfil concluído. |
 | R23 | Perfil e portal personal exibem rótulos, campos e ações separados e responsivos. | Conferência visual em telas desktop e celular, incluindo senha e convite. |
 | R24 | Mídia nova só é incorporada com direito de uso e atribuição verificáveis; indisponibilidade não impede registrar treinos. | Fontes e licença documentadas e fallback local sem quebrar UI. |
@@ -151,7 +151,7 @@ Falhas de autenticação ou RLS podem expor dados entre usuários e são crític
 ## Fundação trainer/aluno — Lote 7
 
 - Relações, convites, perfis de conta, atribuições, feedback, notificações e pagamentos ficam em tabelas relacionais com RLS. Dados individuais atuais permanecem em `fitness_resources`, sem migração destrutiva. Trainer ativo lê perfil/histórico necessário do aluno; aluno executa sessões na própria conta.
-- Seleção explícita do modo personal chama RPC com a própria identidade autenticada. `account_type` não pode ser atualizado livremente por um PATCH da conta.
+- No INSERT da identidade Auth, o trigger cria `account_profiles` com o tipo escolhido no cadastro. Convites de alunos sempre criam conta individual. Não existe RPC de promoção; `account_type` não pode ser atualizado pelo cliente nem ao alterar metadata depois da criação.
 - Convite exige personal autenticado, rate limit e service role no servidor para `inviteUserByEmail`. Aceitação exige usuário Auth com o mesmo e-mail, convite pendente e prazo de sete dias; associação é feita em RPC, sem `student_id` fornecido pelo navegador. Alunos antigos mantêm dados mesmo depois de encerrar vínculo.
 - Políticas vetam escrita estrutural de prescrições pelo aluno e leitura de outro aluno. Ex-aluno deixa de aparecer no acesso ativo. É necessário validar RLS com contas reais após migrar.
 

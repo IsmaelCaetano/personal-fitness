@@ -37,7 +37,6 @@ export function TrainerPortal() {
   const [amount,setAmount]=useState('');
   const [dueDate,setDueDate]=useState('');
   const [referenceMonth,setReferenceMonth]=useState('');
-  const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<Assignment | 'new' | {draftRoutine:Routine} | null>(null);
   const [drafts,setDrafts]=useState<Routine[]>([]);
@@ -72,14 +71,14 @@ export function TrainerPortal() {
       setPortal(await response.json() as Portal);
     }).catch(() => setError('Não foi possível carregar o modo personal. Confira a conexão e as migrações.'));
   }, []);
-  async function action(body: {action:'register';displayName:string}|{action:'accept';inviteId:string}|{action:'invite';email:string;studentName:string;intake:StudentIntake}): Promise<boolean> {
+  async function action(body: {action:'accept';inviteId:string}|{action:'invite';email:string;studentName:string;intake:StudentIntake}): Promise<boolean> {
     setError('');
     try {
       const response = await fetch('/api/trainer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const payload = await response.json() as { error?: string; delivery?: string };
       if (!response.ok) { setError(payload.error ?? 'Não foi possível concluir.'); return false; }
       await load();
-      toast.success(body.action === 'invite' ? payload.delivery === 'in_app' ? 'Convite disponível no app para a conta existente. Avise o aluno para entrar.' : 'Convite enviado' : body.action === 'accept' ? 'Convite aceito' : 'Modo personal ativado');
+      toast.success(body.action === 'invite' ? payload.delivery === 'in_app' ? 'Convite disponível no app para a conta existente. Avise o aluno para entrar.' : 'Convite enviado' : 'Convite aceito');
       return true;
     } catch { setError('Sem conexão. Tente novamente.'); return false; }
   }
@@ -141,7 +140,7 @@ export function TrainerPortal() {
     {error && <p className="error-banner" role="alert">{error}</p>}
     <NotificationBell />
     {!portal && !error && <p>Carregando...</p>}
-    {portal && !isTrainer && <section className="card"><h2>Ativar modo personal</h2><p>Se você acompanha alunos, informe seu nome profissional.</p><label>Nome<input value={name} maxLength={80} onChange={(event) => setName(event.target.value)} /></label><button className="primary" disabled={!name.trim()} onClick={() => action({ action: 'register', displayName: name })}>Ativar modo personal</button></section>}
+    {portal && !isTrainer && <section className="card"><h2>Conta individual</h2><p>Seu acesso é individual. Use seus treinos normalmente; o modo personal é escolhido ao criar uma nova conta profissional.</p></section>}
     {portal?.invites.filter((invite) => !isTrainer && invite.status === 'pending').map((invite) => <section className="card" key={invite.id}><h2>Convite para acompanhamento</h2><p>Convite recebido para {invite.email}. Expira em {new Date(invite.expires_at).toLocaleDateString('pt-BR')}.</p><button className="primary" onClick={() => action({ action: 'accept', inviteId: invite.id })}>Aceitar convite</button></section>)}
     {isTrainer && <>
       {summary&&<section className="card"><h2>Resumo do acompanhamento</h2><div className="summary-grid"><div><strong>{summary.active}</strong><span>Alunos ativos</span></div><div><strong>{summary.trainedThisWeek}</strong><span>Treinaram em 7 dias</span></div><div><strong>{summary.feedbackPending}</strong><span>Feedbacks pendentes</span></div><div><strong>{summary.paymentsPending}</strong><span>Pagamentos pendentes</span></div><div><strong>{summary.paymentsOverdue}</strong><span>Pagamentos atrasados</span></div></div></section>}

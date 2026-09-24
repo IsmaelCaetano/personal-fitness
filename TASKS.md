@@ -4,6 +4,7 @@ Cada tarefa deve caber em um commit revisável e reversível.
 
 ## Agora
 
+- [x] **Tipo de conta imutável — código e banco** — Papel definido no INSERT Auth; promoção individual removida de UI/API/RPC, INSERT e UPDATE do tipo bloqueados para `authenticated`. Migração `202609240008` aplicada no Supabase; teste transacional de cadastro e convite passou com rollback. 11 usuários e 101 registros preservados. Teste real de envio de e-mail com duas contas ainda pendente.
 - [ ] **Convite e cadastro — integração visual** — Novo personal escolhe modo no cadastro; aluno novo define senha pelo link; executar teste real com dois e-mails controlados, inclusive Auth expirado, resposta de conta existente e UI de Perfil/Personal em celular. A migração `202609240006` foi aplicada e verificada no Supabase em 2026-09-24, sem alterar as 94 linhas existentes. O teste local não abre servidor dev neste ambiente (`uv_interface_addresses`), então não declarar esses fluxos como validados em navegador autenticado.
 - [ ] **Lote 1 — integração** — Migração aplicada em produção em 2026-09-24; conferir duas abas, dois dispositivos, offline/reconexão e conflitos reais com navegador autenticado.
 - [ ] **Lote 2 — integração** — Migração e chave privada aplicadas em produção; validar RPC/RLS e quota com Gemini real usando conta autenticada.
