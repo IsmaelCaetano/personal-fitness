@@ -55,6 +55,9 @@ Pessoas que treinam musculação, corrida ou atividades híbridas precisam organ
 | R14 | Falha de rede deve preservar alterações locais pendentes e permitir sincronização posterior sem duplicar gravação já confirmada. | Ao entrar, compara a fila com a nuvem e remove a alteração idêntica já salva; mantém as demais e solicita escolha somente se o conteúdo divergir. |
 | R15 | Nenhuma credencial privada pode aparecer no bundle do cliente ou no repositório. | Gate de segredos e revisão de variáveis `NEXT_PUBLIC_*`. |
 | R16 | Importar semana com múltiplas sessões em um dia, atividade cardio junto de força, descanso e cargas progressivas sem perder linhas. | Teste de importação espera duas rotinas na segunda, futebol de 60 min na terça, domingo sem rotina e cargas 100/110/120 kg por série. Prévia permite corrigir o dia. |
+| R17 | Edições durante um envio preservam tanto a intenção mais recente quanto a tentativa em trânsito. | Resposta perdida e retry confirmam a tentativa anterior sem descartar a edição posterior; versões divergentes de outro dispositivo continuam exigindo escolha. |
+| R18 | A fila é recuperada antes de qualquer leitura de rede e abas não sobrescrevem os rascunhos umas das outras. | Abertura offline, reconexão, duas abas e recuperação de diário abandonado são cobertas por testes. |
+| R19 | A versão de um ID nunca reinicia depois de excluir/restaurar; inicializar a conta não sobrescreve perfil nem oculta recursos existentes. | Testes de exclusão/restauração rejeitam escrita de dispositivo antigo; criação concorrente do perfil usa `ON CONFLICT DO NOTHING`. |
 
 ## Ambiente
 
@@ -90,6 +93,28 @@ Falhas de autenticação ou RLS podem expor dados entre usuários e são crític
 | D4 | IA seleciona IDs de uma biblioteca controlada. | Mantém mídia, músculos e alternativas consistentes. | Aceitar nomes livres sem vínculo. |
 | D5 | OCR apenas transcreve; parser e usuário revisam depois. | Reduz risco de salvar interpretação incorreta. | Importar foto direto no banco. |
 | D6 | Toda geração é específica à conta atual. | O MVP atende múltiplos usuários sem regras pessoais hardcoded. | Perfil fixo do criador. |
+| D7 | Preservar uma tentativa imutável na fila até confirmar seu resultado. | A edição mais nova não é evidência do conteúdo de uma requisição anterior cuja resposta se perdeu. | Sobrescrever a tentativa ou incrementar versão sem confirmação. |
+| D8 | Cada aba possui um diário local exclusivo, protegido por Web Locks. | Evita sobrescrita de filas entre abas; abas encerradas liberam diários recuperáveis. | Um array compartilhado em localStorage com last-write-wins. |
+| D9 | Exclusão mantém marcador e versão crescente, com payload vazio. | Impede que excluir/restaurar reabra uma versão antiga para outro dispositivo. | Apagar a linha e recriar com `version=1`. |
+
+## Protocolo de sincronização — Lote 1
+
+- Arquitetura preservada: entidade JSONB por usuário, CAS por `version`, fila otimista, retry e HTTP 409. `sync-client.ts` contém o mesmo ciclo de sincronização isolado do React para testes de requisições em trânsito; o hook mantém debounce de 450 ms e retry de 10 s. Requests têm timeout de 20 s.
+- A intenção mais recente e a tentativa enviada são persistidas juntas, antes do POST. Confirmação da tentativa avança somente a versão daquela entidade. `stamp` é monotônico dentro do diário. Dados são normalizados pelo mesmo Zod antes de enfileirar.
+- Depois de falha ambígua, ler a nuvem antes do retry. Uma tentativa de update/insert só é reconhecida pelo conteúdo **e pela próxima versão exata**. Se o GET ainda vê o estado anterior, não descartar a intenção mais nova: o request pode estar terminando no servidor.
+- Conflitos reais bloqueiam apenas os IDs afetados. Os demais sincronizam normalmente. Resolver um conflito não aceita uma versão da nuvem nem descarta uma edição local surgida depois da versão apresentada ao usuário.
+- A fila é carregada antes da rede, inclusive offline. O cache antigo é transferido somente depois de uma gravação durável; conteúdo ilegível permanece intacto. Snapshot e fila ficam no mesmo envelope local. Falha de armazenamento mantém a fila em memória e exibe aviso para manter a aba aberta.
+- Diários são separados por usuário e aba. Web Locks mantêm a posse até desmontagem/encerramento, inclusive em abas duplicadas. Diários abandonados são recuperados sequencialmente, sem combinar silenciosamente versões locais diferentes. Browser sem Web Locks ou armazenamento acessível recebe erro explícito, sem apagar dados; o contrato é navegador moderno em HTTPS.
+- `deletedIds` é opcional para tolerar snapshots anteriores. `versions` inclui marcadores de exclusão. A API devolve somente entidades não excluídas; restauração explícita usa CAS na versão do marcador. O payload excluído é substituído por `{}`; sessões históricas independentes permanecem intactas.
+- A migração `202609230001_fitness_deletion_versions.sql` adiciona somente `deleted_at`, sem alterações em RLS ou dados existentes. Aplicar a migração versionada **antes** de publicar o código. Não remover os marcadores/coluna ao reverter: depois de novas exclusões, rollback precisa manter filtragem de `deleted_at` e versões monotônicas. A migração não recupera versões de exclusões físicas anteriores a ela.
+
+### Evidência e limites da validação
+
+- Reproduzidos com falha antes da correção: resposta perdida seguida de nova edição; reinício de versão após excluir/restaurar o mesmo ID.
+- `tests/sync-client.test.ts`: cenários A–O com transporte controlado e promises suspensas, alterações durante GET/POST, escolha local/nuvem, timeout/perda de resposta simulados, falha de armazenamento e sessão expirada.
+- `tests/sync-cache.test.ts`: localStorage compartilhado simulado, isolamento entre abas/contas, migração, retomada de diários e cache corrompido. Gerenciador de locks simulado; ainda falta smoke test com Web Locks reais em navegadores.
+- `tests/persistence.test.ts`: executa o query builder usado pela API contra um adaptador PostgREST em memória (CAS, restrição única, filtros de usuário/recurso, bootstrap e exclusões). Não equivale a testar RLS/transações contra Postgres real.
+- A migração, o fluxo autenticado em produção e dois dispositivos reais precisam de validação antes de liberar este lote. Nenhuma credencial nem dados de produção são usados nos testes.
 
 ## Em aberto
 

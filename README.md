@@ -8,6 +8,7 @@ MVP multiusuário para planejar musculação, corrida e treino híbrido, registr
 - Regras para manutenção por humanos e agentes: [`AGENTS.md`](AGENTS.md)
 - Próximos lotes: [`TASKS.md`](TASKS.md)
 - Banco e políticas: [`supabase/schema.sql`](supabase/schema.sql)
+- Alterações incrementais do banco: [`supabase/migrations/`](supabase/migrations/)
 
 ## Tecnologias
 
@@ -65,7 +66,13 @@ Durante o desenvolvimento, `pnpm check:fast` pula apenas o build final.
 - Texto: títulos por dia da semana e turno viram rotinas separadas, inclusive duas no mesmo dia. Cardio no fim da sessão vira exercício da rotina; descanso não cria rotina. A prévia permite corrigir os dias.
 - Cargas: sequências como `100 / 110 / 120 kg` são preservadas por série; metas condicionais (`até 110 kg`) ficam como orientação. Cargas indicadas “por lado” aparecem na ficha, sem preencher automaticamente o peso total.
 - Fotos de até 8 MB são reduzidas no navegador para respeitar o limite de requisição da Vercel; o servidor não armazena a foto.
-- Persistência: alteração otimista local → API versionada → Supabase com RLS.
+- Persistência: alteração otimista local → diário exclusivo da aba → API versionada → Supabase com RLS. Respostas perdidas são reconciliadas sem descartar edições feitas durante o envio. Requer navegador moderno com Web Locks em HTTPS.
+
+### Atualização do Lote 1
+
+Em banco existente, aplicar a migração versionada `202609230001_fitness_deletion_versions.sql` antes de publicar a nova API. Ela adiciona `deleted_at`, mantém as políticas existentes e não apaga registros. Exclusões passam a preservar apenas um marcador com versão crescente e payload vazio, evitando sobrescrita por dispositivos antigos. Não reaplicar o schema completo para atualizar produção.
+
+O cache antigo é migrado automaticamente. Ao atualizar, recarregue as abas antigas sem limpar armazenamento; elas ainda executam o protocolo anterior até recarregar. O procedimento e os limites de rollback/validação estão em `SPEC.md` e `TASKS.md`.
 
 ## Publicação
 

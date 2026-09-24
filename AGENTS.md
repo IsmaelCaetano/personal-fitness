@@ -35,6 +35,8 @@ Antes de relatar que funciona, rode `pnpm check`. Se não puder, diga exatamente
 - `features/fitness/import-workout.tsx`: upload/transcrição/revisão de fichas.
 - `features/fitness/profile-onboarding.tsx`: cadastro complementar obrigatório.
 - `lib/fitness/model.ts`: contrato Zod persistido.
+- `lib/fitness/sync.ts`, `sync-client.ts`, `sync-cache.ts`: reconciliação, fila/requests e diários locais por aba; o hook React adapta esses módulos.
+- `lib/fitness/persistence.ts`: queries da API de fitness (bootstrap e CAS), isoladas para testes.
 - `lib/fitness/domain.ts`: cálculos puros; teste aqui antes de usar na UI.
 - `lib/fitness/import.ts`: parser determinístico de texto/JSON; identifica dia/turno, atividades na sessão, descanso e cargas por série. Mantenha os `base-*` existentes estáveis ao estender a biblioteca.
 - `lib/fitness/seed.ts`: biblioteca estática e estado vazio de novas contas.
@@ -81,6 +83,10 @@ Antes de relatar que funciona, rode `pnpm check`. Se não puder, diga exatamente
 - **A biblioteca usa IDs `base-*`.** Não reordenar linhas existentes de `seed.ts`, pois isso muda vínculos salvos. Novos exercícios entram no fim.
 - **Local cache pode conter schema anterior.** Migrações de modelo precisam tolerar/normalizar snapshots existentes.
 - **Uma resposta de salvamento pode se perder após o commit no Supabase.** Antes de reenviar a fila local, compare cada alteração com o registro do servidor; conteúdo já salvo deve sair da fila, mas versões realmente diferentes exigem escolha do usuário. Nunca limpe toda a fila para resolver um conflito isolado.
+- **Edição durante request não substitui a tentativa enviada.** Persistir `attempt` antes de enviar; confirmar o conteúdo e a próxima versão exata antes de avançar a edição posterior. GET após timeout pode chegar antes do commit: não descartar a intenção só porque corresponde ao estado antigo.
+- **Uma chave local compartilhada entre abas perde filas.** Usar os diários de `sync-cache.ts` e Web Locks; nunca escrever diretamente na fila legada. Dados ilegíveis devem ser preservados, não substituídos por array vazio.
+- **Excluir/recriar não pode reiniciar `version`.** Preservar marcador `deleted_at` com payload vazio; aplicar a migração versionada antes do deploy. Não remover marcadores em rollback nem ignorar `deletedIds` na reconciliação.
+- **Bootstrap não pode atualizar perfil existente.** Criar com `ignoreDuplicates: true` e reler todos os recursos; não usar o retorno do insert como snapshot completo.
 - **Resultado Gemini pode ser JSON válido e semanticamente ruim.** Sempre compilar contra a biblioteca e o `routineSchema`.
 - **HEIC pode chegar com MIME vazio ou variável.** Validar extensão e normalizar antes da API.
 - **A chave Gemini foi adicionada à Production na Vercel em 2026-09-23.** O primeiro teste revelou que `gemini-2.5-flash-lite` não está disponível para novas contas; o endpoint foi atualizado para `gemini-3.5-flash-lite` no commit `ba96ed4`. Ainda falta validar geração e OCR autenticados após o deploy.
