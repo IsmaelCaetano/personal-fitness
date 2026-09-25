@@ -123,8 +123,6 @@ Falhas de autenticação ou RLS podem expor dados entre usuários e são crític
 - `tests/persistence.test.ts`: executa o query builder usado pela API contra um adaptador PostgREST em memória (CAS, restrição única, filtros de usuário/recurso, bootstrap e exclusões). Não equivale a testar RLS/transações contra Postgres real.
 - A migração, o fluxo autenticado em produção e dois dispositivos reais precisam de validação antes de liberar este lote. Nenhuma credencial nem dados de produção são usados nos testes.
 
-## Em aberto
-
 ## Substituições equivalentes — Lote 3
 
 - O catálogo mantém todos os IDs `base-*` originais e acrescenta variantes ao final. Campos opcionais de movimento, região, mecânica e lateralidade aceitam perfis antigos; exercícios sem classificação segura não recebem sugestões automáticas.
@@ -146,7 +144,7 @@ Falhas de autenticação ou RLS podem expor dados entre usuários e são crític
 
 - Rotas existentes exigem sessão e origem para mutações; payloads têm limites e validação. Callback de autenticação só aceita redirecionamento local. Erros de persistência e OCR não registram exceções com possíveis dados da conta.
 - `api_rate_limits` contém janelas por conta e operação. A RPC usa `auth.uid()` internamente e operações/tetos fixos; OCR e gerador retornam 429 ao atingir teto, 503 se migração ausente.
-- `SECURITY.md` descreve ameaças, controles, migrações e verificações pendentes. RLS e funções SQL ainda precisam de testes contra Postgres real antes de deploy.
+- `SECURITY.md` descreve ameaças, controles e verificações pendentes. Migrações já aplicadas em produção; ainda faltam testes autenticados de acesso cruzado e concorrência no Postgres real.
 
 ## Fundação trainer/aluno — Lote 7
 
@@ -184,10 +182,15 @@ Falhas de autenticação ou RLS podem expor dados entre usuários e são crític
 - Somente a criação de programas pela IA conta: duas solicitações bem-sucedidas por mês calendário UTC para a conta individual gratuita. Edição, importação, OCR e treino manual continuam sem quota de geração.
 - `ai_usage` e `ai_generation_requests` são relacionais e independentes do JSONB de fitness. Reserva, conclusão e liberação passam por RPCs transacionais restritas a `service_role`, com trava por usuário/período. O ID da tentativa preserva resposta válida para retries sem cobrança duplicada.
 - Reservas pendentes abandonadas por mais de dois minutos são liberadas na consulta seguinte; resultado falho no Gemini/JSON/Zod/domínio libera a reserva. Falha ambígua ao confirmar não devolve plano ainda não confirmado como sucesso.
-- Migrar `202609240001_ai_usage.sql` após a migration do lote 1, antes de publicar a rota. `SUPABASE_SERVICE_ROLE_KEY` é privada na Vercel, sem prefixo público. O contador e a renovação são consultados em `/api/ai/workout` por GET autenticado.
+- `202609240001_ai_usage.sql` já foi aplicado em produção após a migration do lote 1. `SUPABASE_SERVICE_ROLE_KEY` é privada na Vercel, sem prefixo público. O contador e a renovação são consultados em `/api/ai/workout` por GET autenticado.
 - Testes locais simulam concorrência e retry; ainda falta teste da função SQL e RLS em Postgres real.
 
 - [ ] Definir limites comerciais de gerações por usuário/dia antes de abrir o MVP publicamente.
-- [ ] Decidir se equipamentos e nível também serão persistidos no perfil, além do pedido de cada geração.
+- [x] Equipamentos e nível são campos opcionais retrocompatíveis do perfil e alimentam a geração.
 - [ ] Adicionar política de privacidade explicando envio de texto/imagem ao provedor de IA.
-- [ ] Confirmar se fotos devem ser descartadas imediatamente sem qualquer armazenamento (implementação atual: não persiste).
+- [x] Fotos de importação são processadas em memória e não persistidas pelo aplicativo.
+
+## Em aberto
+
+- [ ] Executar testes autenticados com personal e dois alunos para convite, acesso cruzado, quota, e-mail e sincronização multidispositivo; a aplicação de migrations e os testes locais não comprovam esses fluxos.
+- [ ] Validar entrega de e-mail e redirects no provedor SMTP real; o código usa Supabase Auth e não configura Resend.

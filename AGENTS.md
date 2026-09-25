@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Leia antes de alterar este repositório. A fonte de verdade do produto é `SPEC.md`.
+Antes de modificar código, leia `docs/PROJECT_CONTEXT.md`. Em seguida consulte a seção relevante de `SPEC.md` e `TASKS.md`; este arquivo contém as regras operacionais.
 
 ## Stack
 
@@ -42,6 +42,8 @@ Antes de relatar que funciona, rode `pnpm check`. Se não puder, diga exatamente
 - `lib/fitness/seed.ts`: biblioteca estática e estado vazio de novas contas.
 - `supabase/schema.sql`: tabela e RLS.
 - `supabase/migrations/`: aplicar em ordem em banco existente; nunca usar `schema.sql` como migração. Quota e convite usam `SUPABASE_SERVICE_ROLE_KEY` apenas no servidor.
+- `docs/PROJECT_CONTEXT.md`: handoff técnico; `PROJECT_HANDOFF.md`: entrada portátil; `docs/RUNBOOK.md`: operação e diagnóstico.
+- `lib/fitness/recommendations.ts`, `pdf.ts`, `adherence.ts`: substituição equivalente, exportação e constância. `app/api/notifications/` e `features/fitness/trainer-portal.tsx`: acompanhamento.
 - `app/api/trainer/`: endpoints com vínculo ativo validado no servidor e RLS no banco. Aluno grava execução na própria conta; prescrições do personal ficam em `trainer_routines`.
 - `tests/`: testes de domínio e importação.
 
@@ -52,7 +54,7 @@ Antes de relatar que funciona, rode `pnpm check`. Se não puder, diga exatamente
 - Datas de calendário usam `YYYY-MM-DD`; timestamps usam ISO UTC.
 - Toda entidade persistida tem `id` estável e validação Zod.
 - Dados novos usam `newId()`; nunca derive IDs de e-mail ou informação pessoal.
-- Erros de API para o usuário devem ser claros e genéricos; detalhe técnico vai para `console.error` no servidor.
+- Erros de API para o usuário devem ser claros e genéricos; logs de servidor não podem conter senha, token, chave, URL de confirmação nem payload sensível.
 - Chamadas externas precisam de timeout e limite de payload.
 - IA/OCR nunca persistem por conta própria. Sempre existe preview/revisão e ação explícita.
 - Preserve o tema visual escuro, verde-lima e a responsividade já estabelecida.
@@ -63,6 +65,7 @@ Antes de relatar que funciona, rode `pnpm check`. Se não puder, diga exatamente
 - `NEXT_PUBLIC_SUPABASE_URL`: URL pública do projeto.
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: chave pública do Supabase.
 - `GEMINI_API_KEY`: segredo server-only para geração e leitura de imagem.
+- `SUPABASE_SERVICE_ROLE_KEY`: segredo server-only para quota e convites; `APP_ORIGIN`: origem confiável dos links de convite local.
 - Nunca prefixe segredo com `NEXT_PUBLIC_`.
 - `.env.local` não é versionado; `.env.example` contém apenas nomes vazios.
 
@@ -72,6 +75,8 @@ Antes de relatar que funciona, rode `pnpm check`. Se não puder, diga exatamente
 - **Contas novas ficam vazias.** Biblioteca estática não é histórico nem rotina mockada.
 - **Perfil é por conta.** Altura, peso, objetivos e frequência alimentam a IA dinamicamente.
 - **Gemini Flash-Lite é o provedor inicial.** Suporta texto/imagem e permite um único backend no MVP.
+- **Tipo de conta é definido no INSERT de Auth.** Nenhuma mudança de metadata ou request pode promover conta individual a personal; novas contas públicas podem escolher personal no cadastro.
+- **Fila local contém tentativas em voo e novas edições separadas.** Nunca avance versão ou remova intenção recente por resposta perdida; preservar marcadores de exclusão e diários por aba.
 - **A resposta da IA é não confiável.** Validar JSON, limites e IDs antes de exibir ou salvar.
 - **Imagem não é armazenada.** Ela é enviada em memória para transcrição e descartada após a requisição.
 - **GitHub → Vercel é o fluxo de publicação escolhido pelo usuário.** Não migrar hospedagem silenciosamente.
