@@ -1,59 +1,41 @@
 # Tarefas
 
-Cada tarefa deve caber em um commit revisável e reversível.
+Estado em 2026-09-24. [SPEC.md](SPEC.md) define comportamento; [docs/PROJECT_CONTEXT.md](docs/PROJECT_CONTEXT.md) registra implementação. Código, migration aplicada e teste autenticado são marcos **diferentes**. Não repetir SQL apenas porque o painel não mostra histórico da migration.
 
 ## Agora
 
-- [x] **Tipo de conta imutável — código e banco** — Papel definido no INSERT Auth; promoção individual removida de UI/API/RPC, INSERT e UPDATE do tipo bloqueados para `authenticated`. Migração `202609240008` aplicada no Supabase; teste transacional de cadastro e convite passou com rollback. 11 usuários e 101 registros preservados. Teste real de envio de e-mail com duas contas ainda pendente.
-- [ ] **Convite e cadastro — integração visual** — Novo personal escolhe modo no cadastro; aluno novo define senha pelo link; executar teste real com dois e-mails controlados, inclusive Auth expirado, resposta de conta existente e UI de Perfil/Personal em celular. A migração `202609240006` foi aplicada e verificada no Supabase em 2026-09-24, sem alterar as 94 linhas existentes. O teste local não abre servidor dev neste ambiente (`uv_interface_addresses`), então não declarar esses fluxos como validados em navegador autenticado.
-- [ ] **Lote 1 — integração** — Migração aplicada em produção em 2026-09-24; conferir duas abas, dois dispositivos, offline/reconexão e conflitos reais com navegador autenticado.
-- [ ] **Lote 2 — integração** — Migração e chave privada aplicadas em produção; validar RPC/RLS e quota com Gemini real usando conta autenticada.
-- [ ] **Lote 3 — verificação real** — Validar trocas e recusas no navegador e persistência do perfil com conta autenticada em produção.
-- [ ] **Lote 4 — verificação real** — Inspecionar visualmente PDFs longos e texto com acentos no navegador em produção.
-- [ ] **Lote 5 — IA opcional** — Camada explicativa Gemini não foi adicionada; motor determinístico funciona sem ela. Definir limite persistente por usuário antes de habilitar chamadas durante treino.
-- [ ] **Lote 6 — banco real** — Migração aplicada; testar RPC autenticada, limites simultâneos, RLS e integração de OCR/IA.
-- [ ] **Lote 7 — integração** — Migração e service role privada aplicadas; testar convites de conta nova/existente e RLS com duas contas e personal.
-- [ ] **Lote 8 — integração** — Testar dois usuários reais e versões concorrentes na prescrição, visualização/execução do aluno, responsividade da tela `/trainer` e fluxo de convite existente.
-- [ ] **Lote 9 — integração** — Testar triggers de notificação, marcação de leitura e feedback com RLS autenticada em Supabase real.
-- [ ] **Lote 10 — integração** — Migração aplicada; conferir index/trigger, pagamento com dois alunos e derivação de atraso em data real.
-- [ ] **Lote 11 — fluxo real** — Testar alteração de senha com/sem exigência de reautenticação e teste de geração Gemini para aluno autorizado em ambiente de homologação.
+- [ ] **T-A1 — Testar convite real entre duas contas controladas** · R21–R23 · novo personal → pré-cadastro/ficha → e-mail → senha do aluno → vínculo → painel; incluir link expirado, conta já existente e responsividade mobile. O teste SQL com rollback já passou, mas não testa entrega de e-mail.
+- [ ] **T-A2 — Testar isolamento RLS com pessoas distintas** · R1, R21–R22 · personal A lê somente aluno A; personal B/aluno B negados; aluno não altera prescrição; usar cliente Auth, não service role.
+- [ ] **T-A3 — Testar persistência real e reconexão** · R13–R19 · duas abas/dispositivos, resposta perdida, conflitos reais, internet offline/online e tombstone após exclusão; não limpar armazenamento para “consertar”.
+- [ ] **T-A4 — Validar gerador/OCR e quota reais** · R7–R10, R20 · chave privada, 0/2→2/2, mês UTC, Gemini falha sem consumo, retry, foto e erro 429; conferir RPC/RLS.
+- [ ] **T-A5 — Revisar rotas Auth e e-mail** · R1, R21–R23 · confirmação, recuperação, troca de senha com reautenticação, redirect seguro; verificar SMTP/domínio `auth.caetanolabs.com` no Supabase e entrega, sem expor credenciais.
 
-- [ ] **T6** — Configurar `GEMINI_API_KEY` na Vercel e validar geração real · atende `R7`, `R8` · verifica-se: OCR e plano funcionam em produção.
-- [ ] **T9** — Validar em produção a recuperação de gravações pendentes, conflitos reais e salvamento de plano gerado · atende `R13`, `R14`.
-- [x] **Publicação em produção, 2026-09-24** — PR #4 integrado à `main` como `be9262b`; 15 commits revisáveis preservados. `SUPABASE_SERVICE_ROLE_KEY` aparece como Secret nos ambientes Production e Preview da Vercel. Deploy `dpl_8gSneWaAKnTVEEGnRBzxA4AkD2VE` Ready; tela pública de acesso abriu em `personal-fitness-omega.vercel.app`. `pnpm check` passou com 95 testes, tipos, build e lint sem erros (6 avisos). Fluxos autenticados de quota, convites, acesso cruzado, notificações e salvamento ainda dependem de teste com contas reais; a tela de login não comprova esses fluxos.
+## Próximo
 
-## Anotado durante a implementação
+- [ ] **T-P1 — Verificar PDF e substituições no navegador** · R5, R11, R24 · documentos longos/acentos, troca equivalente, equipamento indisponível, recusa e override personal.
+- [ ] **T-P2 — Verificar atribuição, feedback, notificações e pagamento** · R1, R21–R23 · aluno executa prescrição, recebe resposta do personal, lê aviso; dois alunos não misturam pagamentos; conferir deduplicação de lembrete.
+- [ ] **T-P3 — Revisar interface e mídia offline** · R23–R25 · Perfil e portal desktop/mobile, GIF/imagem aberta previamente, fallback após recarga offline e treino em aba já aberta.
+- [ ] **T-P4 — Formalizar controle do banco de produção** · R1, R21 · reconciliar histórico SQL Editor com `supabase/migrations/` antes de novas alterações; realizar teste transacional das policies com contas reais.
 
-- [ ] Definir rate limit por usuário antes de divulgação pública.
-- [ ] Criar aviso de privacidade específico para conteúdo enviado à IA.
-- [ ] Avaliar persistência de nível e equipamentos no perfil após validar o MVP.
+## Backlog
+
+- [ ] **T-B1 — Coach explicativo opcional** · especificar limite persistente e fallback antes de criar endpoint Gemini; feedback determinístico já funciona.
+- [ ] **T-B2 — Política de privacidade publicada** · explicar envio a Gemini e retenção de dados; aviso atual no Perfil não substitui texto jurídico.
+- [ ] **T-B3 — Mais mídia demonstrativa licenciada** · confirmar direito de uso/atribuição antes de incluir fonte externa; registro manual sempre disponível.
+- [ ] **T-B4 — Verificação de profissionais** · cadastro público inicial aceita autodeclaração personal; exigiria nova decisão de produto para aprovação externa.
 
 ## Feito
 
-- [x] **Ajustes de convite, formulários e mídia local** — Formulários Perfil/Personal espaçados; seleção de conta personal; pré-cadastro nome/e-mail e senha definida pelo próprio aluno; 19 mapeamentos de imagens de demonstração verificadas no catálogo aberto, conservados offline via Service Worker. Gif do Treino não incorporado sem licença. `pnpm check` passa localmente; integração com contas reais continua pendente.
-- [x] **Cache privado no dispositivo** — Service Worker v4 não armazena a página autenticada, expurga cache anterior e mantém apenas recursos públicos/demonstrações; a recarga offline mostra fallback genérico sem conta. Fluxos offline de aba já aberta continuam pendentes de verificação manual.
-- [x] **Migrações de produção, 2026-09-24** — Aplicados em transações, na ordem, os seis arquivos `202609230001` a `202609240005` no projeto Supabase `personal-fitness`. Antes, criada cópia privada `deployment_backups.fitness_resources_pre_20260924`; depois, 94 registros originais e 94 cópias com conteúdo original igual, 11 tabelas novas com RLS, 22 policies, acesso do papel `authenticated` à cópia negado. SQL Editor não registra essas execuções no histórico formal de migrations; verificar manualmente antes de repetir. Testes com usuários reais continuam pendentes.
-
-- [x] **Lote 3 — código local** — Padrão, região, mecânica e lateralidade opcionais; catálogo ampliado sem alterar IDs antigos; filtro determinístico, equipagem/recusa/override, proteção contra alternativas antigas ruins e IA livre; testes de equivalência. Verificação real pendente.
-- [x] **Lote 4 — código local** — Exportação A4 para rotina e programa, view model puro e teste de histórico/privacidade; verificação visual pendente.
-- [x] **Lote 5 — motor local** — Dica determinística após série, com testes de faixa, RIR, RPE, histórico e exclusões de aquecimento/cardio. Sem camada Gemini opcional.
-- [x] **Lote 6 — auditoria local** — Revisadas rotas existentes, callback interno, logs, limites de IA e OCR; threat model e riscos em `SECURITY.md`. Integração de banco real pendente.
-- [x] **Lote 7 — fundação local** — Tabelas relacionais, grants/RLS, convite Auth Admin, registro trainer e aceitação por e-mail. Sem banco real/teste de e-mail nesta execução.
-- [x] **Lote 8 — código local** — Portal profissional, detalhes do aluno, prescrições com edição CAS, PDF para aluno e execução de prescrição pelo aluno sem alterar a rotina original.
-- [x] **Lote 9 — código local** — Aluno envia feedback/pedido de troca, personal responde e resolve, notificações em app e triggers para eventos principais. Banco real pendente.
-- [x] **Lote 10 — código local** — Aderência pura/UTC, resumo por aluno e controle administrativo de pagamentos e lembretes com índices deduplicadores. Banco real pendente.
-- [x] **Lote 11 — código local** — Perfil retrocompatível com preferências, senha via Supabase e rascunho Gemini para aluno, editável antes de atribuir. Fluxo real pendente.
-
-- [x] **Lote 2 — código local** — Duas gerações de programa/mês UTC, reserva/liberação atômica, retry idempotente, contador e renovação. Testes locais cobrem limite, concorrência, falha, retry e virada do mês. Integração de banco real pendente.
-
-- [x] **Lote 1 — código e regressões** — Falso conflito com edição em trânsito e reutilização de versão após exclusão reproduzidos e corrigidos; diários por aba, retomada offline, CAS e bootstrap protegidos. Especificação documenta cenários A–O e limites dos testes. `pnpm check` final em 2026-09-23: 63/63 testes, tipos/build/gate de segredos aprovados, lint sem erros e com 6 avisos preexistentes. Branch de revisão: `fix/batch-1-sync`. Sem deploy nem aplicação de migração nesta execução.
-
-- [x] **T0** — Remover dados demonstrativos e exigir perfil inicial (`33ddc4a`).
-- [x] **T1** — Validar contratos do gerador, dias, IDs e cardio híbrido (19 testes verdes).
-- [x] **T2** — Revisão do plano com justificativa, exercícios e progressão antes de salvar.
-- [x] **T3** — Upload e transcrição de imagem com limite de tamanho e revisão de texto.
-- [x] **T4** — Fixtures explícitas substituem dependência dos dados demo.
-- [x] **T5** — Frequência semanal obrigatória de 1 a 7 dias no onboarding.
-- [x] **T7** — Lote completo integrado no PR #1 (`8bb63a1`); Vercel Production “Ready” e tela pública de acesso verificada.
-- [x] **T8** — Semana com dois treinos na segunda, futebol, cardio, metas por série e descanso interpretada e revisável (teste de contrato).
-- [x] **Ficha preenchida pelo personal — código e banco** — Pré-cadastro com perguntas de treino, convite vinculado à ficha, aceitação atômica criando perfil completo. Migração `202609240007` aplicada em produção e verificada (coluna e função); 98 testes e `pnpm check` passaram. Teste de convite com duas contas reais continua pendente.
+- [x] **Dados reais e importação** · contas vazias, onboarding individual, importação texto/JSON/foto, semana com sessões no mesmo dia e cargas por série (`33ddc4a`, `e5af33b`).
+- [x] **Lote 1 — concorrência no código** · fila por aba e CAS com regressões (`859b424`, `858e2f6`, `41163fb`); migration `202609230001` aplicada.
+- [x] **Lote 2 — quota no código** · duas gerações/mês UTC, reserva/ID atômicos (`f5ba8a9`); migration `202609240001` aplicada.
+- [x] **Lote 3 — equivalência** · filtro biomecânico e override (`0176797`).
+- [x] **Lote 4 — PDF A4** · jsPDF e view model testável (`97f6101`).
+- [x] **Lote 5 — coach determinístico** · dicas sem Gemini (`4eefa17`).
+- [x] **Lote 6 — segurança local** · rotas/callback/rate limit (`3661936`); migration `202609240002` aplicada.
+- [x] **Lote 7 — fundação personal/aluno** · vínculos, convite, trigger de papel, pré-cadastro/ficha e aceitação atômica (`88b617f`, `bef7d4a`, `7f549f8`, `72e3bbf`, `0376993`); migrations `202609240003`, `006`, `007`, `008` aplicadas. Teste SQL transacional `supabase/tests/trainer_account_flow.sql` passou com rollback.
+- [x] **Lote 8 — dashboard/prescrição** · portal, atribuição e execução na conta do aluno (`decf67e`).
+- [x] **Lote 9 — feedback/notificação** · triggers e sino in-app (`5165368`); migration `202609240004` aplicada.
+- [x] **Lote 10 — aderência/mensalidades** · UTC e lembretes deduplicados (`709dd8b`); migration `202609240005` aplicada.
+- [x] **Lote 11 — perfil/senha** · preferências retrocompatíveis e Auth (`6d9fcc6`).
+- [x] **Lote 12 — revisão local e publicação** · Service Worker sem HTML privado, mídia pública parcial e papel imutável (`dfc4efc`, `e088ce4`, `0376993`); código em `main` no merge `8a995de`, deploy Vercel Ready antes deste pacote documental. Gate anterior passou 98 testes; testes autenticados estão em **Agora**.

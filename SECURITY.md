@@ -20,18 +20,19 @@ Dados de perfil e treino, históricos, cargas, senhas de autenticação e conte�
 
 ## Riscos e verificações pendentes
 
-- **Banco real:** migrations 202609230001 a 202609240005 foram aplicadas no projeto de produção em 2026-09-24. Estrutura/RLS e integridade dos 94 registros anteriores verificadas. Ainda faltam testes autenticados de policies, triggers, privilégios e concorrência com contas distintas; não assumir que a aplicação das migrations prova todos os fluxos.
-- **Segredo externo:** `SUPABASE_SERVICE_ROLE_KEY` ainda precisa ser configurada somente no ambiente do servidor Vercel para a quota; nunca usar `NEXT_PUBLIC_`.
+- **Banco real:** migrations `202609230001` a `202609240008` foram aplicadas no projeto de produção em 2026-09-24. A integridade dos 94 registros anteriores foi verificada na primeira aplicação; checagem posterior preservou 101 registros e 11 identidades Auth. Teste SQL transacional de papel/convite passou com rollback; ainda faltam testes autenticados de policies, triggers e concorrência entre contas. O SQL Editor não registra automaticamente histórico formal de migrations.
+- **Segredo externo:** `SUPABASE_SERVICE_ROLE_KEY` foi observada como variável privada da Vercel em Production e Preview durante a publicação anterior; confirmar presença no ambiente de qualquer novo deploy, sem nunca expor o valor ou usar `NEXT_PUBLIC_`. `GEMINI_API_KEY` também deve ser verificada sem revelar o valor.
 - **Convites para contas existentes:** se o provedor identificar conta já registrada, o convite permanece pendente e aparece dentro do app quando o aluno entrar. O personal deve avisá-lo para abrir a tela; envio de e-mail adicional exige provedor configurado. É preciso testar as respostas reais do Auth. Em convites novos, o nome fica na linha do convite, a senha só é definida após validação da sessão e `accept_trainer_invite` confere o e-mail autenticado. O fragmento com tokens é removido da URL assim que lido; o link de convite por e-mail tem prazo próprio do Supabase Auth e pode expirar antes do registro do convite.
 - **Cache em aparelho compartilhado:** respostas de navegação autenticada contêm estado da conta serializado. O Service Worker v4 não armazena HTML de navegação e remove caches antigos; offline após recarga mostra apenas uma tela genérica, enquanto a aba já aberta conserva a fila local por usuário.
 - **Autorização trainer:** RLS aplicada. Simulações em memória não substituem testes de personal A/aluno A contra personal B/aluno B, inclusive INSERT/UPDATE direto via cliente Supabase.
 - **Rate limit:** OCR, gerador, convites e feedback precisam de teste de concorrência no banco. Não há camada LLM opcional do coach.
+- **E-mail:** Supabase Auth envia confirmação/convite/recovery. O repositório não comprova se Resend SMTP ou `auth.caetanolabs.com` estão configurados no painel; verificar com duas contas controladas. Cadastro público permite a uma pessoa nova escolher papel personal; não há verificação profissional externa.
 - **Teste real:** duas abas, dois aparelhos, OAuth/reset/callback, RLS autenticada e PDFs compartilhados exigem smoke test no ambiente publicado.
 - **Dependências:** instalar apenas lockfile auditado; script transitivo de `core-js` foi explicitamente desabilitado.
 
-## Checklist de revisão antes da publicação
+## Checklist operacional para novo deploy
 
-1. Aplicar migrations versionadas em ordem; testar usuário A contra dados de B e quota simultânea.
+1. Conferir migrations já aplicadas antes de qualquer SQL novo; testar usuário A contra dados de B e quota simultânea.
 2. Confirmar variáveis privadas na Vercel e que nenhum segredo está em Git, bundle ou log.
 3. Exercitar signup, confirmação, recovery, login, logout, callback seguro e senha.
 4. Testar entrada grande, MIME falso, origem externa, limites OCR/IA e falhas Gemini.
